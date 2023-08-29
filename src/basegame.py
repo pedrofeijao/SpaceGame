@@ -1,79 +1,16 @@
 import math
-import random
 import pygame
-import constants
-from constants import GameState, WIDTH, HEIGHT, STATUS_BAR_HEIGHT, EnemySpawnEvent
-from flying_obj import Planet, Explosion
-from enemies import Swarmer, Asteroid, SlashBullet, FireBullet
-from init import status_font, title_font
-from hero import Spaceship
-from levels import LevelController
-from moves import SpriteMoves
-from utils import scale_and_rotate, group_two_pass_collision, sprite_two_pass_collision
-
-
-class EnemySpawner:
-    def __init__(self, game):
-        self.game = game
-
-        # Sprite groups
-        self.enemy_ships = pygame.sprite.Group()
-        self.enemy_projectiles = pygame.sprite.Group()
-        self.all_enemies = pygame.sprite.Group()
-
-    def add_enemy_ship_sprite(self, ship):
-        self.enemy_ships.add(ship)
-        self.all_enemies.add(ship)
-
-    def add_enemy_projectile_sprite(self, projectile):
-        self.enemy_projectiles.add(projectile)
-        self.all_enemies.add(projectile)
-
-    def spawn_asteroid(self):
-        for idx in range(10):  # try a few times to get an asteroid without collision with existing ones
-            asteroid = Asteroid(WIDTH, random.randint(100, HEIGHT - 100))
-            if pygame.sprite.spritecollide(asteroid, self.enemy_ships, False):
-                asteroid.kill()
-            else:
-                self.add_enemy_ship_sprite(asteroid)
-                break
-
-    def spawn_smaller_asteroids(self, asteroid):
-        direction = 1 if random.random() > 0.5 else -1
-        new_size = asteroid.size - 1
-        speed_mult = math.sqrt(4.0 - new_size)
-        offset = Asteroid.pixel_size * new_size / 3
-        ast1 = Asteroid(asteroid.x - direction * offset, asteroid.y - offset, size=asteroid.size - 1,
-                        speed_x=-speed_mult * direction * (0.5 + random.random()),
-                        speed_y=-speed_mult * (0.5 + random.random()))
-        ast2 = Asteroid(asteroid.x + direction * offset, asteroid.y + offset, size=asteroid.size - 1,
-                        speed_x=speed_mult * direction * (0.5 + random.random()),
-                        speed_y=speed_mult * (0.5 + random.random()))
-        self.add_enemy_ship_sprite(ast1)
-        self.add_enemy_ship_sprite(ast2)
-
-    def spawn_random_slash_bullet(self):
-        bullet = SlashBullet(self.game.spaceship, WIDTH + 10, random.randint(40, HEIGHT - 40))
-        self.add_enemy_projectile_sprite(bullet)
-
-    def spawn_random_fire_bullet(self):
-        bullet = FireBullet(self.game.spaceship, WIDTH + 10, random.randint(40, HEIGHT - 40))
-        self.add_enemy_projectile_sprite(bullet)
-
-    def check_spawn_events(self, event):
-
-        if event == EnemySpawnEvent.ASTEROID.value:
-            self.spawn_asteroid()
-
-        if event == EnemySpawnEvent.SWARM.value:
-            swarmer = Swarmer(WIDTH + 20, random.randint(0, HEIGHT), self.game.spaceship)
-            self.add_enemy_ship_sprite(swarmer)
-
-        if event == EnemySpawnEvent.FIREBALL.value:
-            self.spawn_random_fire_bullet()
-
-        if event == EnemySpawnEvent.SLASHBULLET.value:
-            self.spawn_random_slash_bullet()
+from src.constants import GameState, WIDTH, HEIGHT, STATUS_BAR_HEIGHT, NEXT_LEVEL_EVENT, HEALTH_POS_LEFT, \
+    HEALTH_POS_TOP, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT, BG_SPEED
+from src.flying_obj import Planet, Explosion
+from src.enemies import Asteroid
+from src.init import status_font, title_font
+from src.hero import Spaceship
+from src.levels import LevelController
+from src.moves import SpriteMoves
+from src.enemy_spawner import EnemySpawner
+from src.utils import scale_and_rotate, group_two_pass_collision, sprite_two_pass_collision
+from src import gradient
 
 
 class Game:
@@ -100,9 +37,13 @@ class Game:
         self.status_bg = scale_and_rotate("assets/Sprites/Space-Gui-2/blue/panel-5.png", (500, 150))
 
         self.score = 0
-        self.next_upgrade = 200000
+        self.upgrade_level = 1
+        self.next_upgrade = self.calc_next_upgrade()
 
         self.game_time = 0
+
+    def calc_next_upgrade(self):
+        return self.upgrade_level * (self.upgrade_level + 1) * 40
 
     def create_explosion(self, x, y, size):
         explosion = Explosion.create(x, y, size)
@@ -123,7 +64,6 @@ class Game:
                     self.score += enemy.score
                     # Special cases:
                     if type(enemy) == Asteroid and enemy.size > 1:  # breaks the asteroid in 2:
-
                         self.enemy_spawner.spawn_smaller_asteroids(enemy)
 
     def check_spaceship_collisions(self):
@@ -138,7 +78,7 @@ class Game:
                     self.create_explosion(enemy.rect.center[0], enemy.rect.center[1], enemy.size)
 
     def check_rotating_shield_hits(self):
-        hits = group_two_pass_collision(self.spaceship.rotating_shields, self.enemy_spawner.enemy_ships, False, False)
+        hits = group_two_pass_collision(self.spaceship.weapons.rotating_shields, self.enemy_spawner.enemy_ships, False, False)
         if hits:
             for shield, enemies in hits.items():
                 for enemy in enemies:
@@ -154,9 +94,9 @@ class Game:
                     shield.kill()
 
     def check_shield_hits(self):
-        shield = self.spaceship.shield
+        shield = self.spaceship.weapons.shield
         # Shield collisions:
-        hits = sprite_two_pass_collision(shield, self.enemy_spawner.enemy_ships, False)
+        hits = sprite_two_pass_collision(shield, self.enemy_spawner.all_enemies, False)
         if hits:
             for enemy in hits:
                 shield.current_shield -= 1
@@ -175,7 +115,7 @@ class Game:
 
                 self.enemy_spawner.check_spawn_events(event)
 
-                if event.type == constants.NEXT_LEVEL_EVENT:
+                if event.type == NEXT_LEVEL_EVENT:
                     self.level_controller.activate_next_level()
 
                 if event.type == 9998:
@@ -185,49 +125,83 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_u:
                     self.state_manager.game_state = GameState.UPGRADE
-
-                if event.key == pygame.K_1 and len(self.spaceship.wingman_pos) > 0:
+                if event.key == pygame.K_1 and len(self.spaceship.weapons.wingman_pos) > 0:
                     for i in range(1):
-                        pos = self.spaceship.wingman_pos.pop()
-                        wingman = self.spaceship.add_wingman(*pos)
+                        pos = self.spaceship.weapons.wingman_pos.pop()
+                        wingman = self.spaceship.weapons.add_wingman(*pos)
                         self.sprite_moves.add_anchored_offset(wingman, -pos[0], -pos[1])
                 if event.key == pygame.K_2:
-                    self.spaceship.add_rotating_shield()
+                    self.spaceship.weapons.add_rotating_shield()
 
                 if event.key == pygame.K_3:
-                    self.spaceship.increase_projectiles()
+                    self.spaceship.weapons.increase_projectiles()
 
                 if event.key == pygame.K_4:
                     self.spaceship.health += 20
 
                 if event.key == pygame.K_5:
-                    self.spaceship.shield.increase_level()
+                    self.spaceship.weapons.shield.increase_level()
 
+                if event.key == pygame.K_6:
+                    self.spaceship.health -= 20
+
+                if event.key == pygame.K_7:
+                    self.spaceship.weapons.increase_burst()
 
     # Screen drawing functions:
     def draw_status(self):
         """
         Draws the status bar at the top
         """
+
         pygame.draw.rect(self.window, pygame.Color('black'), pygame.rect.Rect(0, 0, WIDTH, STATUS_BAR_HEIGHT))
         pygame.draw.rect(self.window, pygame.Color('cadetblue2'), pygame.rect.Rect(0, STATUS_BAR_HEIGHT, WIDTH, 3))
 
         score_text = status_font.render(
-            f"Score: {self.score} FPS:{self.clock.get_fps():.0f} Time: {self.game_time:.2f}",
+            f"Score: {self.score}/{self.next_upgrade}  Level: {self.level_controller.current_level}     FPS:{self.clock.get_fps():.0f}      Time: {self.game_time:.0f}",
             True, pygame.Color('chartreuse3'))
-        self.window.blit(score_text, (WIDTH - 410, 10))
+        self.window.blit(score_text, (400, 10))
 
         # Spaceship health:
-        pygame.draw.rect(self.window, pygame.Color('gray'), pygame.rect.Rect(6, 6, 208, 38), border_radius=5)
+        # Background
+
+
+
+        pygame.draw.rect(self.window, pygame.Color('gray40'), pygame.rect.Rect(HEALTH_POS_LEFT-1, HEALTH_POS_TOP-1, HEALTH_BAR_WIDTH+2, HEALTH_BAR_HEIGHT+2), border_radius=0)
+        HEART_IMG = scale_and_rotate("assets/Sprites/PowerUp/heart.png", (20, 20))
+        self.window.blit(HEART_IMG, (HEALTH_POS_LEFT - 25, HEALTH_POS_TOP - 5))
+
+        # self.window.blit(gradient.vertical((HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT), pygame.Color('red'), pygame.Color('red')),
+        #                  (HEALTH_POS_LEFT, HEALTH_POS_TOP))
+        pygame.draw.rect(self.window, pygame.Color('red'),
+                         pygame.rect.Rect(HEALTH_POS_LEFT, HEALTH_POS_TOP, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
+
+        health_size = round(self.spaceship.health/100 * HEALTH_BAR_WIDTH)
+        damage_size = round((self.spaceship.health_bar - self.spaceship.health)/100 * HEALTH_BAR_WIDTH)
+        health_pos = health_size + HEALTH_POS_LEFT
+
+        health_gain_pos = round(self.spaceship.health_bar/100 * HEALTH_BAR_WIDTH) + HEALTH_POS_LEFT
+        health_gain_size = health_pos - health_gain_pos
+
+        # pygame.draw.rect(self.window, pygame.Color('gray'),
+        #                  pygame.rect.Rect(health_pos, 10, W - health_size, 15))
+
+        if self.spaceship.health < 100:
+
+            self.window.blit(gradient.horizontal((HEALTH_BAR_WIDTH-health_size, HEALTH_BAR_HEIGHT), pygame.Color('gray60'), pygame.Color('gray30')),
+                         (health_pos, HEALTH_POS_TOP))
+
+
         if self.spaceship.health_bar > self.spaceship.health:
-            pygame.draw.rect(self.window, pygame.Color('yellow'),
-                             pygame.rect.Rect(10, 10, 2 * self.spaceship.health_bar, 30))
-        pygame.draw.rect(self.window, pygame.Color('red'), pygame.rect.Rect(10, 10, 2 * self.spaceship.health, 30))
+            # pygame.draw.rect(self.window, pygame.Color('orange1'),
+            #                  pygame.rect.Rect(health_pos, TOP, damage_size, H))
+            self.window.blit(gradient.horizontal((damage_size, HEALTH_BAR_HEIGHT), pygame.Color('red'), pygame.Color('yellow')),
+                         (health_pos, HEALTH_POS_TOP))
         if self.spaceship.health_bar < self.spaceship.health:
-            pygame.draw.rect(self.window, pygame.Color('blue'), pygame.rect.Rect(10 + 2 * self.spaceship.health_bar, 10,
-                                                                                 2 * (
-                                                                                         self.spaceship.health - self.spaceship.health_bar),
-                                                                                 30))
+            self.window.blit(gradient.horizontal((health_gain_size, HEALTH_BAR_HEIGHT),
+                                                 pygame.Color('red'), pygame.Color('blue')),
+                         (health_gain_pos, HEALTH_POS_TOP))
+
 
     # Draws an "action" (running state) frame
     def draw_action(self, add_scroll=True):
@@ -272,10 +246,8 @@ class GameStateManager:
         # Upgrade by points:
         if self.game.score >= self.game.next_upgrade and self.game_state == GameState.RUNNING:
             self.game_state = GameState.UPGRADE
-            # TODO: move this
-            self.game.enemy_spawner.asteroid_timer *= 0.8
-            pygame.time.set_timer(EnemySpawnEvent.ASTEROID, round(self.game.enemy_spawner.asteroid_timer))
-            self.game.next_upgrade *= 1.5
+            self.game.upgrade_level += 1
+            self.game.next_upgrade = self.game.calc_next_upgrade()
 
     def upgrade_screen_state(self):
         self.game.draw_action(add_scroll=False)
@@ -301,13 +273,13 @@ class GameStateManager:
                     self.game.spaceship.acceleration += 0.1
                 if event.key == pygame.K_2:
                     self.game_state = GameState.RUNNING
-                    self.game.spaceship.fire_cooldown_time *= 0.8
+                    self.game.spaceship.weapons.fire_cooldown_time *= 0.8
                 if event.key == pygame.K_3:
                     self.game_state = GameState.RUNNING
-                    self.game.spaceship.increase_projectiles()
+                    self.game.spaceship.weapons.increase_projectiles()
                 if event.key == pygame.K_4:
                     self.game_state = GameState.RUNNING
-                    self.game.spaceship.spread *= 0.8
+                    self.game.spaceship.weapons.spread *= 0.8
 
     def start_screen_state(self):
         self.game.background.update_and_draw()
@@ -329,12 +301,12 @@ class GameStateManager:
         self.game.update_sprites()
 
         # Check collisions:
-        self.game.check_projectile_hits(self.game.spaceship.projectiles)
+        self.game.check_projectile_hits(self.game.spaceship.weapons.projectiles)
         self.game.check_spaceship_collisions()
 
         # Check shields:
         self.game.check_rotating_shield_hits()
-        if self.game.spaceship.shield.current_shield > 0:
+        if self.game.spaceship.weapons.shield.current_shield > 0:
             self.game.check_shield_hits()
 
         # Draw screen:
@@ -357,7 +329,7 @@ class Background:
                 self.window.blit(img, (tile * self.bg_width - self.scroll[i], 0))
         if add_scroll:
             self.planets.update()
-            base_speed = constants.BG_SPEED
+            base_speed = BG_SPEED
             for idx in range(len(self.scroll)):
                 self.scroll[idx] += base_speed
                 if self.scroll[idx] > self.bg_width:

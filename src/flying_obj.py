@@ -3,8 +3,8 @@ import random
 
 import pygame
 
-from utils import scale_and_rotate, SpriteSheet
-from constants import HEIGHT, WIDTH
+from src.utils import scale_and_rotate, SpriteSheet
+from src.constants import HEIGHT, WIDTH
 
 
 class FlyingObject(pygame.sprite.Sprite):
@@ -66,19 +66,20 @@ class FlyingObject(pygame.sprite.Sprite):
         destroyed = self.got_hit(damage=spaceship.collision_damage)
 
         # adjust speeds
-        factor = 1 / math.sqrt(self.size)
-        space_x = min(2.0, spaceship.speed_x)
-        space_y = min(2.0, spaceship.speed_y)
-        self.speed_x, spaceship.speed_x = factor * space_x, (1 / factor) * self.speed_x
-        self.speed_y, spaceship.speed_y = factor * space_y, (1 / factor) * self.speed_y
-
+        # factor = 1 / math.sqrt(self.size)
+        # space_x = min(2.0, spaceship.speed_x)
+        # space_y = min(2.0, spaceship.speed_y)
+        # self.speed_x, spaceship.speed_x = factor * space_x, (1 / factor) * self.speed_x
+        # self.speed_y, spaceship.speed_y = factor * space_y, (1 / factor) * self.speed_y
+        spaceship.speed_x += self.size * self.speed_x / 4
+        spaceship.speed_y += self.size * self.speed_y / 4
         return destroyed
 
 
 class FlyingObjectFragile(FlyingObject):
 
-    def __init__(self, *args, offset=50, **kwargs):
-        self.offset = offset
+    def __init__(self, *args, kill_offset=50, **kwargs):
+        self.kill_offset = kill_offset
         super().__init__(*args, **kwargs)
 
     def update(self):
@@ -86,16 +87,16 @@ class FlyingObjectFragile(FlyingObject):
         self.check_bounds()
 
     def check_bounds(self):
-        if self.rect.bottom < -self.offset \
-                or self.rect.top > HEIGHT + self.offset \
-                or self.rect.right < -self.offset \
-                or self.rect.left > WIDTH + self.offset:
+        if self.rect.bottom < -self.kill_offset \
+                or self.rect.top > HEIGHT + self.kill_offset \
+                or self.rect.right < -self.kill_offset \
+                or self.rect.left > WIDTH + self.kill_offset:
             self.kill()
 
 
 class AnimatedFOF(FlyingObjectFragile):
-    def __init__(self, images, anim_speed, *args, offset=50, **kwargs):
-        super().__init__(images[0], *args, offset=offset, **kwargs)
+    def __init__(self, images, anim_speed, *args, kill_offset=50, **kwargs):
+        super().__init__(images[0], *args, kill_offset=kill_offset, **kwargs)
         self.images = images
         self.img_idx = 0
         self.anim_speed = anim_speed
@@ -123,7 +124,7 @@ class Planet(FlyingObjectFragile):
         model = random.randint(1, 16)
         rotation = random.randint(0, 360)
         image = scale_and_rotate(f"assets/Sprites/Planets/planet-{model}.png", (self.size, self.size), rotation)
-        super().__init__(image, WIDTH + self.size / 2, y, speed_x=-1.2, offset=self.size)
+        super().__init__(image, WIDTH + self.size / 2, y, speed_x=-1.2, kill_offset=self.size)
 
 
 class Explosion(pygame.sprite.Sprite):

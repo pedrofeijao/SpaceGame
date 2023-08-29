@@ -1,29 +1,34 @@
 from enum import Enum
 import pygame
 
+# WINDOW PARAMETERS
 WIDTH, HEIGHT = 1400, 900
 
-FPS = 60
+# DRAWING POSITIONS
+HEALTH_BAR_WIDTH = 300
+HEALTH_POS_LEFT = (WIDTH - HEALTH_BAR_WIDTH) // 2
+HEALTH_BAR_HEIGHT = 10
+HEALTH_POS_TOP = HEIGHT - HEALTH_BAR_HEIGHT - 5
 
+STATUS_BAR_HEIGHT = 50
+
+# FPS
+FPS = 60
 
 class GameState(Enum):
     START_SCREEN, GAME_OVER, RUNNING, PAUSED, UPGRADE, QUIT = range(6)
 
 
 SHIELD_INITIAL_DAMAGE = 20
-
 BG_SPEED = 1
-
-STATUS_BAR_HEIGHT = 50
 
 # Events
 
-NEXT_LEVEL_EVENT = 9990
-
+NEXT_LEVEL_EVENT = pygame.USEREVENT + 1
 
 class EnemySpawnEvent(Enum):
-    SWARM = pygame.event.Event(9991)
-    ASTEROID = pygame.event.Event(9992)
-    FIREBALL = pygame.event.Event(9993)
-    SLASHBULLET = pygame.event.Event(9994)
-    SINESHIP = pygame.event.Event(9995)
+    SWARM = pygame.USEREVENT + 2
+    ASTEROID = pygame.USEREVENT + 3
+    FIREBALL = pygame.USEREVENT + 4
+    SLASHBULLET = pygame.USEREVENT + 5
+    SINESHIP = pygame.USEREVENT + 6

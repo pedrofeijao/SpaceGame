@@ -1,4 +1,4 @@
-from constants import WIDTH, HEIGHT
+from src.constants import WIDTH, HEIGHT
 import pygame
 pygame.init()
 # Set the dimensions of the window

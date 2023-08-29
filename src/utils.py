@@ -2,7 +2,6 @@ import pygame
 import math
 
 
-
 def scale_and_rotate(image_path, image_size=None, rotate=None):
     image = pygame.image.load(image_path)
     if image_size:
@@ -17,7 +16,7 @@ class SpriteSheet:
         self.sheet = image
 
     def get_image(self, frame_x, frame_y, width=32, height=32, scale=2, colour=(0, 0, 0)):
-        image = pygame.transform.scale(self.sheet.subsurface( ((frame_x * width), (frame_y * width), width, height)),
+        image = pygame.transform.scale(self.sheet.subsurface(((frame_x * width), (frame_y * width), width, height)),
                                        (width * scale, height * scale))
         image.set_colorkey(colour)
         return image
@@ -41,6 +40,7 @@ def sprite_two_pass_collision(sprite, group, dokill):
     if hits:
         new_group = pygame.sprite.Group(hits)
         return pygame.sprite.spritecollide(sprite, new_group, dokill, pygame.sprite.collide_mask)
+
 
 def unit_vector(x1, y1, x2, y2, scale=1):
     dx = x2 - x1

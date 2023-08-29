@@ -2,9 +2,9 @@ import sys
 
 import pygame
 
-from init import window
-from basegame import Game
-from constants import GameState, FPS
+from src.init import window
+from src.basegame import Game
+from src.constants import GameState, FPS
 
 pygame.time.set_timer(9998, 45000) # planet
 
@@ -13,8 +13,6 @@ if __name__ == "__main__":
     game = Game(window)
     dt = 0.0
 
-    # image = scale_and_rotate('assets/Sprites/Ships/spaceShips_004.png', (200, 200), -90)
-    # enemy = SineShip(image, speed_x=-1, acceleration=0.02, acceleration_switch=80)
 
     while game.state() != GameState.QUIT:
 
