@@ -53,27 +53,22 @@ class LevelController:
             # LEVEL 1 - Asteroids
             Level(30000, 1000, [
                 (EnemySpawnEvent.ASTEROID, [2000], {}),
-            ]),
-            Level(30000, 1000, [
-                (EnemySpawnEvent.ASTEROID, [500], {}),
+                (EnemySpawnEvent.SWARM, [200], {}),
+                (EnemySpawnEvent.FIREBALL, [1000], {}),
+                (EnemySpawnEvent.SINESHIP, [1000], {}),
+                (EnemySpawnEvent.SLASHBULLET, [2000], {}),
             ]),
 
             # Level 2 - Some swarmers?
-            Level(60000, 1000, [
+            Level(3000, 200, [
                 (EnemySpawnEvent.SWARM, [200], {})
             ]),
 
-            Level(30000, 3000, [
+            Level(3000, 300, [
                 (EnemySpawnEvent.SINESHIP, [1500], {'group': 1}),
             ]),
-            Level(30000, 3000, [
+            Level(3000, 300, [
                 (EnemySpawnEvent.SINESHIP, [2000], {'group': 2}),
-            ]),
-
-            # LEVEL 2
-            Level(3000, 5000, [
-                (EnemySpawnEvent.ASTEROID, [1200], {}),
-                (EnemySpawnEvent.SWARM, [500], {})
             ]),
 
             # LEVEL 3

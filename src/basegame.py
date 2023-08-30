@@ -34,8 +34,6 @@ class Game:
         # self.sprite_moves.add_relative_move(enemy, -550, 0, time=1.5)
         # self.sprite_moves.add_relative_move(enemy, 0, -200, time=2)
 
-        self.status_bg = scale_and_rotate("assets/Sprites/Space-Gui-2/blue/panel-5.png", (500, 150))
-
         self.score = 0
         self.upgrade_level = 1
         self.next_upgrade = self.calc_next_upgrade()
@@ -168,7 +166,7 @@ class Game:
 
 
         pygame.draw.rect(self.window, pygame.Color('gray40'), pygame.rect.Rect(HEALTH_POS_LEFT-1, HEALTH_POS_TOP-1, HEALTH_BAR_WIDTH+2, HEALTH_BAR_HEIGHT+2), border_radius=0)
-        HEART_IMG = scale_and_rotate("assets/Sprites/PowerUp/heart.png", (20, 20))
+        HEART_IMG = scale_and_rotate("assets/Sprites/PowerUp/heart.png", 0.5)
         self.window.blit(HEART_IMG, (HEALTH_POS_LEFT - 25, HEALTH_POS_TOP - 5))
 
         # self.window.blit(gradient.vertical((HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT), pygame.Color('red'), pygame.Color('red')),

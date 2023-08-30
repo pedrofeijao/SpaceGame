@@ -1,10 +1,9 @@
-import math
 import random
 
 import pygame
 
-from src.utils import scale_and_rotate, SpriteSheet
 from src.constants import HEIGHT, WIDTH
+from src.utils import scale_and_rotate, SpriteSheet
 
 
 class FlyingObject(pygame.sprite.Sprite):
@@ -13,7 +12,7 @@ class FlyingObject(pygame.sprite.Sprite):
         super().__init__()
         self.original_image = image
         self.image = image
-        self.mask = pygame.mask.from_surface(self.image, threshold=20)
+        self.mask = pygame.mask.from_surface(self.image, threshold=0)
         # Copy original image and add an transparent mask on top for the hit:
         self.hit_image = image.copy()
         self.hit_image.blit(self.mask.to_surface(setcolor=hit_color, unsetcolor=None).convert_alpha(), (0, 0))
@@ -95,8 +94,8 @@ class FlyingObjectFragile(FlyingObject):
 
 
 class AnimatedFOF(FlyingObjectFragile):
-    def __init__(self, images, anim_speed, *args, kill_offset=50, **kwargs):
-        super().__init__(images[0], *args, kill_offset=kill_offset, **kwargs)
+    def __init__(self, images, anim_speed, *args, kill_offset=50, mask_image_idx=0, **kwargs):
+        super().__init__(images[mask_image_idx], *args, kill_offset=kill_offset, **kwargs)
         self.images = images
         self.img_idx = 0
         self.anim_speed = anim_speed

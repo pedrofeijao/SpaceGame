@@ -21,12 +21,14 @@ swarm_frames = [swarm_sprite_sheet.get_image(idx, 3, width=16, height=16, scale=
                [swarm_sprite_sheet.get_image(idx, 6, width=16, height=16, scale=2) for idx in range(20)] + \
                [swarm_sprite_sheet.get_image(idx, 7, width=16, height=16, scale=2) for idx in range(5)]
 
-
-sineship_image = scale_and_rotate('assets/Sprites/Enemies/enemyBlack1.png', (93 / 2, 84 / 2), -90)
-SIMPLE_BULLET_IMG = scale_and_rotate(f"assets/Sprites/Laser Sprites/laserRed02.png", (10, 25), -90)
+sineship_image = scale_and_rotate('assets/Sprites/Enemies/enemyBlack1.png', scale_by=0.5, rotate=-90)
+SIMPLE_BULLET_IMG = scale_and_rotate(f"assets/Sprites/Laser Sprites/laserRed02.png", rotate=-90)
 
 round_bullet_sheet = SpriteSheet(pygame.image.load("assets/Sprites/Laser Sprites/round_bullet.png").convert_alpha())
 round_bullet_frames = [round_bullet_sheet.get_image(idx, 0, width=16, height=19, scale=2) for idx in [0, 1, 2, 1]]
+
+fire_img = [scale_and_rotate(FIRE_BULLET_IMG.format(idx), scale_by=1) for idx in [1, 2, 3, 4, 5, 4, 3, 2]]
+
 
 class Swarmer(FlyingObject):
     def __init__(self, x, y, target, speed=3, health=1, size=1):
@@ -50,10 +52,10 @@ class Swarmer(FlyingObject):
 
 
 ASTEROID_ANGLES = np.arange(0, 350, 30)
-ASTEROID_SIZE = 40
+ASTEROID_SIZE = 0.5
 asteroid_images = {(image_idx, size, angle): scale_and_rotate(
     ASTEROID_IMG.format(image_idx),
-    (ASTEROID_SIZE * size, ASTEROID_SIZE * size),
+    size * ASTEROID_SIZE,
     angle) for image_idx in [1, 2, 3, 4] for size in [1, 2, 3] for angle in ASTEROID_ANGLES
 }
 
@@ -121,21 +123,18 @@ class SlashBullet(AnimatedFOF):
         super().update()
 
 
-fire_img = [scale_and_rotate(FIRE_BULLET_IMG.format(idx), (140, 140)) for idx in [1, 2, 3, 4, 5, 4, 3, 2]]
-
-
 class FireBullet(AnimatedFOF):
     def __init__(self, x, y, speed_x=-2.5, speed_y=0.0, accel_x=-0, damage=25):
-        super().__init__(fire_img, 5, x, y, speed_x, speed_y, accel_x=accel_x, collision_damage=damage)
+        super().__init__(fire_img, 5, x, y, speed_x, speed_y, accel_x=accel_x, collision_damage=damage,
+                         size=3, mask_image_idx=3)
         self.score = 0
-
-
 
 
 class RoundBullet(AnimatedFOF):
     def __init__(self, x, y, speed_x=-3, speed_y=0.0, accel_x=-0, damage=10):
         super().__init__(round_bullet_frames, 8, x, y, speed_x, speed_y, accel_x=accel_x, collision_damage=damage)
         self.score = 0
+
 
 class SimpleBullet(FlyingObjectFragile):
     def __init__(self, x, y, speed_x=-8.0, speed_y=0.0, damage=15):
@@ -145,7 +144,7 @@ class SimpleBullet(FlyingObjectFragile):
 
 class SineShip(FlyingObjectFragile):
     def __init__(self, enemy_spawner, x=WIDTH, y=HEIGHT / 2, speed_x=-3, speed_y=0, acceleration=0.2,
-                 acceleration_switch=30, shoot_time=2, first_shot_delay=0, kill_offset=200):
+                 acceleration_switch=30, shoot_time=2, first_shot_delay=0, kill_offset=200, level=1):
         super().__init__(sineship_image, x, y, speed_x=speed_x, speed_y=speed_y,
                          health=5, kill_offset=kill_offset,
                          hit_color=(255, 30, 30, 100), size=2)
@@ -153,9 +152,10 @@ class SineShip(FlyingObjectFragile):
         self.acceleration = acceleration
         self.acceleration_switch = acceleration_switch
         self.acceleration_timer = self.acceleration_switch
-        self.score = 100
+        self.score = 100 * level
         self.shoot_time = FPS * shoot_time
         self.shoot_time_count = self.shoot_time * (1 + first_shot_delay)
+        self.level = level
 
     def update(self):
         super().update()
@@ -174,8 +174,12 @@ class SineShip(FlyingObjectFragile):
                 self.shoot_time_count -= 1
 
     def shoot(self):
-        # self.enemy_spawner.spawn_simple_bullet(self.rect.left, self.y)
-        self.enemy_spawner.spawn_targeted_round_bullet(self.rect.left, self.y)
+        if self.level == 1:
+            self.enemy_spawner.spawn_simple_bullet(self.rect.left, self.y)
+        elif self.level == 2:
+            self.enemy_spawner.spawn_targeted_round_bullet(self.rect.left, self.y)
+        else:
+            raise(NotImplemented("No shoot for level 3+ sineship."))
 
 
 class Gem(FlyingObjectFragile):

@@ -1,5 +1,6 @@
 from src.constants import WIDTH, HEIGHT
 import pygame
+
 pygame.init()
 # Set the dimensions of the window
 pygame.display.set_caption("Spaceship Simulation")
