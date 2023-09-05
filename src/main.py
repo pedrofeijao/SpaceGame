@@ -2,20 +2,14 @@ import sys
 
 import pygame
 
-from src.init import window
 from src.basegame import Game
 from src.constants import GameState, FPS
 
-pygame.time.set_timer(9998, 45000) # planet
-
-
 if __name__ == "__main__":
-    game = Game(window)
+    game = Game()
     dt = 0.0
 
-
     while game.state() != GameState.QUIT:
-
         game.manage_game_state(dt)
         # Update the display
         pygame.display.flip()
