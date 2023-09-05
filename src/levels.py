@@ -48,44 +48,80 @@ class LevelController:
     def create_levels():
         return [
             # Level 0
-            Level(0, 500, []),
+            Level(10, 2000, []),
 
             # LEVEL 1 - Asteroids
-            Level(30000, 1000, [
+            Level(30000, 2000, [
+                (EnemySpawnEvent.ASTEROID, [1200], {})
+            ]),
+
+            Level(30000, 2000, [
                 (EnemySpawnEvent.ASTEROID, [2000], {}),
-            ]),
-            Level(30000, 1000, [
-                (EnemySpawnEvent.ASTEROID, [500], {}),
-            ]),
-
-            # Level 2 - Some swarmers?
-            Level(60000, 1000, [
-                (EnemySpawnEvent.SWARM, [200], {})
-            ]),
-
-            Level(30000, 3000, [
-                (EnemySpawnEvent.SINESHIP, [1500], {'group': 1}),
-            ]),
-            Level(30000, 3000, [
-                (EnemySpawnEvent.SINESHIP, [2000], {'group': 2}),
-            ]),
-
-            # LEVEL 2
-            Level(3000, 5000, [
-                (EnemySpawnEvent.ASTEROID, [1200], {}),
                 (EnemySpawnEvent.SWARM, [500], {})
             ]),
 
-            # LEVEL 3
-            Level(3000, 5000, [
-                (EnemySpawnEvent.ASTEROID, [800], {}),
-                (EnemySpawnEvent.FIREBALL, [600], {}),
-
+            Level(30000, 5000, [
+                (EnemySpawnEvent.ASTEROID, [2000], {}),
+                (EnemySpawnEvent.SWARM, [250], {})
             ]),
-            # LEVEL 4
-            Level(3000, 5000, [
-                (EnemySpawnEvent.SWARM, [250], {}),
-                (EnemySpawnEvent.FIREBALL, [500], {}),
+
+            Level(30000, 2000, [
+                (EnemySpawnEvent.SINESHIP, [1500], {})
+            ]),
+
+            Level(30000, 300, [
+                (EnemySpawnEvent.SINESHIP, [1500], {'group': 2}),
+            ]),
+
+            Level(30000, 300, [
+                (EnemySpawnEvent.SINESHIP, [2000], {'group': 3}),
+            ]),
+
+            Level(30000, 3000, [
+                (EnemySpawnEvent.SWARM, [500], {}),
+                (EnemySpawnEvent.SINESHIP, [2000], {'group': 2}),
+            ]),
+
+            Level(30000, 300, [
+                (EnemySpawnEvent.FIREBALL, [1000], {}),
+            ]),
+            Level(30000, 300, [
+                (EnemySpawnEvent.SWARM, [500], {}),
+                (EnemySpawnEvent.FIREBALL, [1000], {}),
+            ]),
+            Level(30000, 300, [
+                (EnemySpawnEvent.SWARM, [500], {}),
+                (EnemySpawnEvent.FIREBALL, [1000], {}),
+                (EnemySpawnEvent.SINESHIP, [2000], {'group': 2}),
+            ]),
+
+            Level(30000, 300, [
+                (EnemySpawnEvent.SLASHBULLET, [2000], {}),
+            ]),
+            Level(30000, 300, [
+                (EnemySpawnEvent.SWARM, [500], {}),
+                (EnemySpawnEvent.SLASHBULLET, [2000], {}),
+            ]),
+            Level(30000, 300, [
+                (EnemySpawnEvent.SWARM, [500], {}),
+                (EnemySpawnEvent.SLASHBULLET, [1500], {}),
+                (EnemySpawnEvent.SINESHIP, [2000], {'group': 2}),
+            ]),
+
+            Level(60000, 1000, [
+                (EnemySpawnEvent.ASTEROID, [2000], {}),
+                (EnemySpawnEvent.SWARM, [600], {}),
+                (EnemySpawnEvent.FIREBALL, [3000], {}),
+                (EnemySpawnEvent.SINESHIP, [2000], {'group': 3}),
+                (EnemySpawnEvent.SLASHBULLET, [3000], {}),
+            ]),
+
+            Level(600000, 1000, [
+                (EnemySpawnEvent.ASTEROID, [1500], {}),
+                (EnemySpawnEvent.SWARM, [400], {}),
+                (EnemySpawnEvent.FIREBALL, [2000], {}),
+                (EnemySpawnEvent.SINESHIP, [1000], {'group': 3}),
+                (EnemySpawnEvent.SLASHBULLET, [2000], {}),
             ]),
 
         ]

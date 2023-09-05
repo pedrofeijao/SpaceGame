@@ -2,10 +2,14 @@ import pygame
 import math
 
 
-def scale_and_rotate(image_path, image_size=None, rotate=None):
+def scale_and_rotate(image_path, scale_by=None, rotate=None, size=None):
     image = pygame.image.load(image_path)
-    if image_size:
-        image = pygame.transform.scale(image, image_size)
+    if type(scale_by) == tuple:
+        raise(Exception("ERROR!"))
+    if size:
+        image = pygame.transform.scale(image, size)
+    if scale_by:
+        image = pygame.transform.scale_by(image, scale_by)
     if rotate:
         image = pygame.transform.rotate(image, rotate)
     return image.convert_alpha()

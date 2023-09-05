@@ -1,19 +1,17 @@
-import math
 import random
 
 import pygame
 
 from src.utils import scale_and_rotate, SpriteSheet
-from src.constants import HEIGHT, WIDTH
 
 
 class FlyingObject(pygame.sprite.Sprite):
     def __init__(self, image, x, y, speed_x=0.0, speed_y=0.0, accel_x=0.0, accel_y=0.0,
-                 health=1, size=1, collision_damage=10, hit_color=(255, 255, 255, 50)):
+                 health=1, size=1, collision_damage=10, hit_color=(255, 255, 255, 50), kill_offset=200):
         super().__init__()
         self.original_image = image
         self.image = image
-        self.mask = pygame.mask.from_surface(self.image, threshold=20)
+        self.mask = pygame.mask.from_surface(self.image, threshold=0)
         # Copy original image and add an transparent mask on top for the hit:
         self.hit_image = image.copy()
         self.hit_image.blit(self.mask.to_surface(setcolor=hit_color, unsetcolor=None).convert_alpha(), (0, 0))
@@ -31,6 +29,7 @@ class FlyingObject(pygame.sprite.Sprite):
         self.health = health
         self.size = size
         self.collision_damage = collision_damage
+        self.kill_offset = kill_offset
 
     def hit_animation(self):
         self.hit_cooldown = self.hit_cooldown_time
@@ -76,27 +75,9 @@ class FlyingObject(pygame.sprite.Sprite):
         return destroyed
 
 
-class FlyingObjectFragile(FlyingObject):
-
-    def __init__(self, *args, kill_offset=50, **kwargs):
-        self.kill_offset = kill_offset
-        super().__init__(*args, **kwargs)
-
-    def update(self):
-        super().update()
-        self.check_bounds()
-
-    def check_bounds(self):
-        if self.rect.bottom < -self.kill_offset \
-                or self.rect.top > HEIGHT + self.kill_offset \
-                or self.rect.right < -self.kill_offset \
-                or self.rect.left > WIDTH + self.kill_offset:
-            self.kill()
-
-
-class AnimatedFOF(FlyingObjectFragile):
-    def __init__(self, images, anim_speed, *args, kill_offset=50, **kwargs):
-        super().__init__(images[0], *args, kill_offset=kill_offset, **kwargs)
+class AnimatedFO(FlyingObject):
+    def __init__(self, images, anim_speed, *args, kill_offset=50, mask_image_idx=0, **kwargs):
+        super().__init__(images[mask_image_idx], *args, kill_offset=kill_offset, **kwargs)
         self.images = images
         self.img_idx = 0
         self.anim_speed = anim_speed
@@ -104,7 +85,6 @@ class AnimatedFOF(FlyingObjectFragile):
 
     def update(self):
         FlyingObject.update_positon(self)
-        super().check_bounds()
         self.anim_speed_counter += 1
         if self.anim_speed_counter > self.anim_speed:
             self.anim_speed_counter = 0
@@ -112,20 +92,15 @@ class AnimatedFOF(FlyingObjectFragile):
             self.image = self.images[self.img_idx]
 
 
-class Planet(FlyingObjectFragile):
-    def __init__(self):
+class Planet(FlyingObject):
+    def __init__(self, image, x, y, size):
+        self.size = size
+        super().__init__(image, x, y, speed_x=-1.2)
 
-        self.size = random.randint(200, 500)
-        if random.random() > 0.5:
-            y = random.randint(round(-self.size / 4), 0)
-        else:
-            y = random.randint(HEIGHT, HEIGHT + round(self.size / 4))
-
-        model = random.randint(1, 16)
-        rotation = random.randint(0, 360)
-        image = scale_and_rotate(f"assets/Sprites/Planets/planet-{model}.png", (self.size, self.size), rotation)
-        super().__init__(image, WIDTH + self.size / 2, y, speed_x=-1.2, kill_offset=self.size)
-
+    def update(self):
+        super().update()
+        if self.rect.right < 0:
+            self.kill()
 
 class Explosion(pygame.sprite.Sprite):
     def __init__(self, x, y, sprite_sheet, n_frames, width, height, scale=4, frame_update_steps=5):
