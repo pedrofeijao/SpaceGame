@@ -164,6 +164,7 @@ class Spaceship(FlyingObject):
 
 class Missile(AnimatedFO):
     def __init__(self, missile_img, x, y, speed_x=3.0, speed_y=0.0, accel_x=0.1, damage=3):
+        print(f"MISSILE SPEED: {speed_x}")
         super().__init__(missile_img, 4, x, y, speed_x, speed_y, accel_x=accel_x)
         self.damage = damage
 
@@ -228,7 +229,7 @@ class Shield(FlyingObject):
         super().__init__(self.frames[1], 0, 0, collision_damage=SHIELD_INITIAL_DAMAGE)
         self.max_shield = 0
         self.current_shield = 0
-        self.shield_recharge_time = 2 * FPS
+        self.shield_recharge_time = 3 * FPS
         self.shield_recharge = self.shield_recharge_time
         self.spaceship = spaceship
 
@@ -260,9 +261,11 @@ class WeaponsController:
         self.projectiles = pygame.sprite.Group()
 
         self.spaceship = spaceship
-        self.fire_audio = pygame.mixer.Sound('assets/laserfire01.ogg')
+        # self.fire_audio = pygame.mixer.Sound('assets/laserfire01.ogg')
+        self.fire_audio = pygame.mixer.Sound('assets/Digital_SFX_Set/laser5.mp3')
 
         # Main weapon:
+        self.projectile_damage = 1
         self.fire_cooldown = 0
         self.fire_cooldown_time = FPS * 0.5
         self.spread = 30
@@ -275,6 +278,7 @@ class WeaponsController:
         # Wingman
         self.wingmen = pygame.sprite.Group()
         self.wingman_pos = [(40, -120), (40, +120), (20, -70), (20, 70)]
+        self.rocket_damage = 3
 
         # Rotating shields
         self.rotating_shields_max = 0
@@ -345,11 +349,11 @@ class WeaponsController:
                 self.spread = 90
 
     def increase_burst(self):
-        self.bursts += 1
-        self.fire_cooldown_time *= 0.8 * self.bursts / (self.bursts - 1)
+        self.bursts += 2
+        self.fire_cooldown_time *= 0.8 * self.bursts / (self.bursts - 2)
 
     def wingman_fire(self, x, y):
-        self.projectiles.add(Missile(self.missile_img, x + 10, y))
+        self.projectiles.add(Missile(self.missile_img, x + 10, y, damage=self.rocket_damage))
 
     def update(self):
         self.wingmen.update()
@@ -378,14 +382,18 @@ class WeaponsController:
 
     def fire(self):
         if self.fire_cooldown <= 0 or (
-                self.current_burst > 0 and self.current_burst < self.bursts and self.burst_cooldown <= 0):
+                0 < self.current_burst < self.bursts and self.burst_cooldown <= 0):
             self.fire_audio.play()
-            if self.n_projectiles == 1:
-                angles = [0]
-            else:
-                angles = np.linspace(-self.spread, self.spread, num=self.n_projectiles)
-            for angle in angles:
-                self.create_projectile(speed=16, angle=angle)
+            match self.n_projectiles:
+                case 1:
+                    self.create_projectile(speed=16, angle=0, damage=self.projectile_damage)
+                case 2:
+                    self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=-15)
+                    self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=+15)
+                case _:
+                    angles = np.linspace(-self.spread, self.spread, num=self.n_projectiles)
+                    for angle in angles:
+                        self.create_projectile(speed=16, angle=angle, damage=self.projectile_damage)
 
             # cool down reset:
             self.fire_cooldown = self.fire_cooldown_time
@@ -407,14 +415,14 @@ class WeaponsController:
         # Projectiles:
         self.projectiles.draw(draw_window)
 
-    def create_projectile(self, angle, speed=16):
+    def create_projectile(self, angle, speed=16, damage=1, y_offset=0):
         speed_x = speed * math.cos(math.radians(angle))
         speed_y = speed * math.sin(math.radians(angle)) + self.spaceship.speed_y / 4
         rect = self.spaceship.rect
         image = self.projectile_imgs[round((90 - angle) % 360)]
 
-        projectile = Projectile(image, rect.right - 10, rect.y + rect.height // 2,
-                                speed_x=speed_x, speed_y=speed_y)
+        projectile = Projectile(image, rect.right - 10, rect.y + rect.height // 2 + y_offset,
+                                speed_x=speed_x, speed_y=speed_y, damage=damage)
         if self.spaceship.speed_x > 0:
             projectile.speed_x += self.spaceship.speed_x
         projectile.speed_y += self.spaceship.speed_y / 4

@@ -7,6 +7,7 @@ from src.constants import GameState, STATUS_BAR_HEIGHT, NEXT_LEVEL_EVENT, \
     HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT, BG_SPEED, PLANET_EVENT, ANCHORED_OFFSET_EVENT, SPACESHIP_DESTROYED
 from src.flying_obj import Planet, Explosion, FlyingObject
 from src.enemies import Asteroid, Swarmer, Gem, SineShip
+from src.gui import SelectBox
 from src.hero import Spaceship
 from src.upgrades import UpgradeType
 from src.levels import LevelController
@@ -22,8 +23,8 @@ class Game:
         # Set the dimensions of the window
         # pygame.display.set_caption("Spaceship Simulation")
         pygame.init()
-        self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        # self.window = pygame.display.set_mode((1200, 800))
+        # self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        self.window = pygame.display.set_mode((1200,800))
 
         self.width = self.window.get_width()
         self.height = self.window.get_height()
@@ -31,12 +32,31 @@ class Game:
         # renderer = Renderer(window)
         # renderer.draw_color = (0, 0, 0, 255)
 
+        # graphics: move?
         self.status_font = pygame.font.Font('assets/fonts/Grand9K Pixel.ttf', 24)
         self.title_font = pygame.font.Font('assets/fonts/Grand9K Pixel.ttf', 64)
         self.background = Background(self.window)
 
+        # Upgrade icons:
+        self.upgrade_icon = {
+            UpgradeType.BURST: scale_and_rotate('assets/icons/icons8-double-up-100_2.png', size=(60, 60)),
+            UpgradeType.SPEED: scale_and_rotate('assets/icons/icons8-rocket-78.png', size=(60, 60)),
+            UpgradeType.PROJECTILE: scale_and_rotate('assets/icons/icons8-parallel-symbol-100.png', size=(60, 60)),
+            UpgradeType.FIRE_RATE: scale_and_rotate('assets/icons/icons8-rocket-64.png', size=(60, 60)),
+            UpgradeType.ROTATING_SHIELD: scale_and_rotate('assets/icons/icons8-filled-circle-100.png', size=(60, 60)),
+            UpgradeType.DAMAGE: scale_and_rotate('assets/icons/icons8-damage-64.png', size=(60, 60)),
+            UpgradeType.WINGMAN: scale_and_rotate('assets/icons/icons8-spaceship-90.png', size=(40, 40)),
+            UpgradeType.SHIELD: scale_and_rotate('assets/icons/icons8-shield-100.png', size=(60, 60)),
+            UpgradeType.MAX_HEALTH: scale_and_rotate('assets/icons/icons8-health-100.png', size=(60, 60)),
+            UpgradeType.SPREAD: scale_and_rotate('assets/icons/icons8-waves-100.png', size=(60, 60)),
+        }
+
         self.clock = pygame.time.Clock()
         self.start_up()
+
+        # audio: move to better place?
+        self.gem_audio = pygame.mixer.Sound('assets/Digital_SFX_Set/powerUp2.mp3')
+
 
     def start_up(self):
         self.state_manager = GameStateManager(self, GameState.START_SCREEN, self.window)
@@ -95,6 +115,7 @@ class Game:
         if hits:
             for gem in hits:
                 gem.kill()
+                self.gem_audio.play()
                 self.score += gem.score
 
     def check_rotating_shield_hits(self):
@@ -325,6 +346,7 @@ class Game:
 
 class GameStateManager:
     def __init__(self, game: Game, game_state: GameState, window):
+        self.select_box = None
         self.upgrade_choices = None
         self.game = game
         self.game_state = game_state
@@ -355,31 +377,38 @@ class GameStateManager:
 
     def upgrade_screen_state(self):
         self.game.draw_action(add_scroll=False)
-        txt = self.game.title_font.render("Upgrade time!", False, pygame.Color('chartreuse3'))
-        rect = txt.get_rect(center=(self.window.get_width() / 2, 150))
-        self.game.window.blit(txt, rect)
-        txt_x = rect.left + 50
-        txt_y = 250
+
         # Choose upgrades:
         if self.upgrade_choices is None:
-            N_CHOICES = 9
-            self.upgrade_choices = dict(
-                zip([pygame.K_1 + idx for idx in range(N_CHOICES)], random.sample(list(UpgradeType), N_CHOICES)))
+            N_CHOICES = 4
+            self.upgrade_choices = random.sample(list(UpgradeType), N_CHOICES)
+            #icons
+            icons = [self.game.upgrade_icon[upgrade] for upgrade in self.upgrade_choices]
+            upgrade_text = [upgrade.value for upgrade in self.upgrade_choices]
+            height = self.game.height - 200
+            option_size = height / (N_CHOICES + 3)
+            width = min(900, self.game.width - 200)
+            self.select_box = SelectBox(upgrade_text, icons=icons, left=(self.game.width - width)/2, width=width, top=100,
+                                        height=height, option_size=option_size, top_margin=option_size, option_spacing=option_size//2)
+        # Box:
+        self.select_box.draw(self.window, self.game.status_font)
 
-        for idx, upgrade in self.upgrade_choices.items():
-            txt = self.game.status_font.render(f"{idx - 48}: {upgrade.value}", False, pygame.Color('chartreuse3'))
-            rect = txt.get_rect(midleft=(txt_x, txt_y))
-            txt_y += 50
-            self.game.window.blit(txt, rect)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.game_state = GameState.QUIT
             if event.type == pygame.KEYDOWN:
-                if event.key in self.upgrade_choices:
-                    print(f"Selected {self.upgrade_choices[event.key]}")
-                    self.game.spaceship.upgrade(self.upgrade_choices[event.key])
-                    self.game_state = GameState.RUNNING
-                    self.upgrade_choices = None
+                match event.key:
+                    case pygame.K_w | pygame.K_UP:
+                        self.select_box.select_previous()
+                    case pygame.K_s | pygame.K_DOWN:
+                        self.select_box.select_next()
+                    case pygame.K_RETURN:
+                        selected = self.upgrade_choices[self.select_box.selected]
+                        print(f"Selected {selected}")
+                        self.game.spaceship.upgrade(selected)
+                        self.game_state = GameState.RUNNING
+                        self.upgrade_choices = None
+
 
     def start_screen_state(self):
         self.game.background.update_and_draw()

@@ -153,7 +153,6 @@ class SineShip(FlyingObject):
 class Gem(AnimatedFO):
     def __init__(self, gem_images, frame_wait, spaceship, x, y, level=1):
         super().__init__(gem_images, frame_wait, x, y)
-
         self.level = level
         self.is_following = False
         self.follow_speed = 6
