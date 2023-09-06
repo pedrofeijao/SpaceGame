@@ -26,9 +26,10 @@ class UpgradeType(Enum):
     SPEED = 'Increase spaceship speed and acceleration'
     SPREAD = 'Reduce basic projectile spread'
     BURST = '+1 burst fire'
+    GEM_RADIUS = 'Increase gem pickup range'
     # RECHARGE_TIME = 'Faster recharge weapons/shields'
     # REGENERATE = 'Add/improve health regeneration'
-
+    PROJECTILE_SIZE = 'Larger projectile'
 
 class UpgradeController:
     def __init__(self, spaceship: Spaceship):
@@ -38,6 +39,7 @@ class UpgradeController:
         self.upgrade_level = {
             upgrade: 0 for upgrade in UpgradeType
         }
+        self.upgrade_level[UpgradeType.PROJECTILE] = 1
 
 
     def apply_upgrade(self, upgrade_type):
@@ -65,7 +67,7 @@ class UpgradeController:
 
             case UpgradeType.FIRE_RATE:
                 # 15% faster, every level
-                self.spaceship.weapons.fire_cooldown_time *= 0.85
+                self.spaceship.weapons.fire_rate.rate *= 0.85
 
             case UpgradeType.PROJECTILE:
                 # add one projectile, every level.
@@ -97,5 +99,16 @@ class UpgradeController:
                 # 30% more damage
                 self.spaceship.weapons.rocket_damage *= 1.3
                 self.spaceship.weapons.projectile_damage *= 1.3
+
+            case UpgradeType.PROJECTILE_SIZE:
+                self.spaceship.weapons.projectile_size += 1
+                self.spaceship.weapons.projectile_size = min(5, self.spaceship.weapons.projectile_size)
+
+            case UpgradeType.GEM_RADIUS:
+                self.spaceship.gem_auto_pickup_distance += 100
+
+            case UpgradeType.SPREAD:
+                self.spaceship.weapons.spread *= 0.6
+
             case _:
                 print(f"Upgrade {upgrade_type} is not implemented yet!!!")

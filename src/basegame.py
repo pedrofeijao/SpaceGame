@@ -1,20 +1,22 @@
 import math
 import random
 
-import numpy as np
 import pygame
+
+from src import gradient
 from src.constants import GameState, STATUS_BAR_HEIGHT, NEXT_LEVEL_EVENT, \
-    HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT, BG_SPEED, PLANET_EVENT, ANCHORED_OFFSET_EVENT, SPACESHIP_DESTROYED
+    HEALTH_BAR_HEIGHT, BG_SPEED, PLANET_EVENT, ANCHORED_OFFSET_EVENT, SPACESHIP_DESTROYED, \
+    UPGRADE_BAR_TOP, UPGRADE_BAR_LEFT, UPGRADE_ICON_SIZE, UPGRADE_BAR_SPACING, SIMPLE_BULLET_EVENT, \
+    TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT
+from src.enemies import Asteroid, Swarmer, SineShip
+from src.enemy_spawner import EnemySpawner
 from src.flying_obj import Planet, Explosion, FlyingObject
-from src.enemies import Asteroid, Swarmer, Gem, SineShip
 from src.gui import SelectBox
 from src.hero import Spaceship
-from src.upgrades import UpgradeType
 from src.levels import LevelController
 from src.moves import SpriteMoves
-from src.enemy_spawner import EnemySpawner
+from src.upgrades import UpgradeType
 from src.utils import scale_and_rotate, group_two_pass_collision, sprite_two_pass_collision
-from src import gradient
 
 
 class Game:
@@ -45,18 +47,20 @@ class Game:
             UpgradeType.FIRE_RATE: scale_and_rotate('assets/icons/icons8-rocket-64.png', size=(60, 60)),
             UpgradeType.ROTATING_SHIELD: scale_and_rotate('assets/icons/icons8-filled-circle-100.png', size=(60, 60)),
             UpgradeType.DAMAGE: scale_and_rotate('assets/icons/icons8-damage-64.png', size=(60, 60)),
-            UpgradeType.WINGMAN: scale_and_rotate('assets/icons/icons8-spaceship-90.png', size=(40, 40)),
+            UpgradeType.WINGMAN: scale_and_rotate('assets/icons/icons8-spaceship-90.png', size=(60, 60)),
             UpgradeType.SHIELD: scale_and_rotate('assets/icons/icons8-shield-100.png', size=(60, 60)),
             UpgradeType.MAX_HEALTH: scale_and_rotate('assets/icons/icons8-health-100.png', size=(60, 60)),
             UpgradeType.SPREAD: scale_and_rotate('assets/icons/icons8-waves-100.png', size=(60, 60)),
-        }
+            UpgradeType.PROJECTILE_SIZE: scale_and_rotate('assets/icons/icons8-up-squared-100.png', size=(60, 60)),
+            UpgradeType.GEM_RADIUS: scale_and_rotate('assets/icons/icons8-laser-100.png', size=(60, 60)),
 
+        }
+        self.small_upgrade_icon = {upgrade: pygame.transform.scale_by(image, 0.5) for upgrade, image in self.upgrade_icon.items()}
         self.clock = pygame.time.Clock()
         self.start_up()
 
         # audio: move to better place?
         self.gem_audio = pygame.mixer.Sound('assets/Digital_SFX_Set/powerUp2.mp3')
-
 
     def start_up(self):
         self.state_manager = GameStateManager(self, GameState.START_SCREEN, self.window)
@@ -64,7 +68,7 @@ class Game:
         self.effects = pygame.sprite.Group()
         self.sprite_moves = SpriteMoves()
 
-        self.spaceship = Spaceship(100, 100, self.sprite_moves)
+        self.spaceship = Spaceship(100, self.height // 2, self.sprite_moves)
         self.level_controller = LevelController(self)
 
         # enemy spawn:
@@ -182,10 +186,19 @@ class Game:
                 if event.type == ANCHORED_OFFSET_EVENT:
                     self.sprite_moves.add_anchored_offset(**event.dict)
 
+                if event.type == ABSOLUTE_MOVE_EVENT:
+                    self.sprite_moves.add_absolute_move(**event.dict)
+
                 if event.type == SPACESHIP_DESTROYED:
                     self.spaceship_destroyed_sequence()
                     self.state_manager.game_state = GameState.GAME_OVER
-                    
+
+                if event.type == SIMPLE_BULLET_EVENT:
+                    self.enemy_spawner.spawn_simple_bullet(**event.dict)
+
+                if event.type == TARGETED_ROUND_BULLET_EVENT:
+                    self.enemy_spawner.spawn_targeted_round_bullet(**event.dict)
+
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_u:
                         self.state_manager.game_state = GameState.UPGRADE
@@ -221,50 +234,31 @@ class Game:
         Draws the status bar(s)
         """
 
-        pygame.draw.rect(self.window, pygame.Color('black'),
-                         pygame.rect.Rect(0, 0, self.window.get_width(), STATUS_BAR_HEIGHT))
-        pygame.draw.rect(self.window, pygame.Color('cadetblue2'),
-                         pygame.rect.Rect(0, STATUS_BAR_HEIGHT, self.window.get_width(), 3))
+        self.draw_top_status_bar()
+        self.draw_spaceship_health()
+        self.draw_upgrade_status()
 
-        score_text = self.status_font.render(
-            f"Score: {self.score}/{self.next_upgrade}", True, pygame.Color('chartreuse3'))
-        self.window.blit(score_text, (10, 10))
-
-        score_text = self.status_font.render(
-            f"Level: {self.level_controller.current_level}", True, pygame.Color('chartreuse3'))
-        self.window.blit(score_text, (self.width // 2 - 50, 10))
-        #
-        score_text = self.status_font.render(f"FPS:{self.clock.get_fps():.0f}", True, pygame.Color('chartreuse3'))
-        self.window.blit(score_text, (self.width - 100, 10))
-
-        # Spaceship health:
+    def draw_spaceship_health(self):
         HEALTH_BAR_WIDTH = self.spaceship.max_health
         health_pos_top = self.height - HEALTH_BAR_HEIGHT - 5
         health_pos_left = (self.width - HEALTH_BAR_WIDTH) // 2
-
         pygame.draw.rect(self.window, pygame.Color('gray40'),
                          pygame.rect.Rect(health_pos_left - 1, health_pos_top - 1, HEALTH_BAR_WIDTH + 2,
                                           HEALTH_BAR_HEIGHT + 2), border_radius=0)
-
         pygame.draw.rect(self.window, pygame.Color('red'),
                          pygame.rect.Rect(health_pos_left, health_pos_top, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
-
-        health_size = round(self.spaceship.health) # /  * HEALTH_BAR_WIDTH)
+        health_size = round(self.spaceship.health)  # /  * HEALTH_BAR_WIDTH)
         damage_size = round((self.spaceship.health_bar - self.spaceship.health) / 100 * HEALTH_BAR_WIDTH)
         health_pos = health_size + health_pos_left
-
         health_gain_pos = round(self.spaceship.health_bar / 100 * HEALTH_BAR_WIDTH) + health_pos_left
         health_gain_size = health_pos - health_gain_pos
-
         # pygame.draw.rect(self.window, pygame.Color('gray'),
         #                  pygame.rect.Rect(health_pos, 10, W - health_size, 15))
-
         if self.spaceship.health < self.spaceship.max_health:
             self.window.blit(
                 gradient.horizontal((HEALTH_BAR_WIDTH - health_size, HEALTH_BAR_HEIGHT), pygame.Color('gray60'),
                                     pygame.Color('gray30')),
                 (health_pos, health_pos_top))
-
         if self.spaceship.health_bar > self.spaceship.health:
             # pygame.draw.rect(self.window, pygame.Color('orange1'),
             #                  pygame.rect.Rect(health_pos, TOP, damage_size, H))
@@ -275,6 +269,21 @@ class Game:
         #     self.window.blit(gradient.horizontal((health_gain_size, HEALTH_BAR_HEIGHT),
         #                                          pygame.Color('red'), pygame.Color('blue')),
         #                      (health_gain_pos, health_pos_top))
+
+    def draw_top_status_bar(self):
+        pygame.draw.rect(self.window, pygame.Color('black'),
+                         pygame.rect.Rect(0, 0, self.window.get_width(), STATUS_BAR_HEIGHT))
+        pygame.draw.rect(self.window, pygame.Color('cadetblue2'),
+                         pygame.rect.Rect(0, STATUS_BAR_HEIGHT, self.window.get_width(), 3))
+        score_text = self.status_font.render(
+            f"Score: {self.score}/{self.next_upgrade}", True, pygame.Color('chartreuse3'))
+        self.window.blit(score_text, (10, 10))
+        score_text = self.status_font.render(
+            f"Level: {self.level_controller.current_level}", True, pygame.Color('chartreuse3'))
+        self.window.blit(score_text, (self.width // 2 - 50, 10))
+        #
+        score_text = self.status_font.render(f"FPS:{self.clock.get_fps():.0f}", True, pygame.Color('chartreuse3'))
+        self.window.blit(score_text, (self.width - 100, 10))
 
     # Draws an "action" (running state) frame
     def draw_action(self, add_scroll=True, spaceship=True):
@@ -342,6 +351,26 @@ class Game:
         self.spaceship.weapons.rotating_shields_max = 0
         self.spaceship.gem_auto_pickup_distance = -1
 
+    def draw_upgrade_status(self):
+        left_pos = UPGRADE_BAR_LEFT
+        for upgrade, level in self.spaceship.upgrades.upgrade_level.items():
+            if level == 0:
+                continue
+
+            pygame.draw.rect(self.window, pygame.Color('gray50'),
+                             pygame.rect.Rect(left_pos, UPGRADE_BAR_TOP, UPGRADE_ICON_SIZE, UPGRADE_ICON_SIZE),
+                             border_radius=5)
+
+            icon = self.small_upgrade_icon[upgrade]
+            self.window.blit(icon, (left_pos + 5, UPGRADE_BAR_TOP + (UPGRADE_ICON_SIZE - icon.get_height()) // 2))
+
+            txt = self.status_font.render(str(level), False, pygame.Color('white'))
+            rect = txt.get_rect(topleft=(left_pos + UPGRADE_ICON_SIZE + 5, UPGRADE_BAR_TOP))
+            self.window.blit(txt, rect)
+
+            left_pos += UPGRADE_BAR_SPACING
+            # if self.icons:
+            # window.blit(txt, rect)
 
 
 class GameStateManager:
@@ -382,14 +411,16 @@ class GameStateManager:
         if self.upgrade_choices is None:
             N_CHOICES = 4
             self.upgrade_choices = random.sample(list(UpgradeType), N_CHOICES)
-            #icons
+            # icons
             icons = [self.game.upgrade_icon[upgrade] for upgrade in self.upgrade_choices]
             upgrade_text = [upgrade.value for upgrade in self.upgrade_choices]
             height = self.game.height - 200
             option_size = height / (N_CHOICES + 3)
             width = min(900, self.game.width - 200)
-            self.select_box = SelectBox(upgrade_text, icons=icons, left=(self.game.width - width)/2, width=width, top=100,
-                                        height=height, option_size=option_size, top_margin=option_size, option_spacing=option_size//2)
+            self.select_box = SelectBox(upgrade_text, icons=icons, left=(self.game.width - width) / 2, width=width,
+                                        top=100,
+                                        height=height, option_size=option_size, top_margin=option_size,
+                                        option_spacing=option_size // 2)
         # Box:
         self.select_box.draw(self.window, self.game.status_font)
 
@@ -408,7 +439,6 @@ class GameStateManager:
                         self.game.spaceship.upgrade(selected)
                         self.game_state = GameState.RUNNING
                         self.upgrade_choices = None
-
 
     def start_screen_state(self):
         self.game.background.update_and_draw()
@@ -468,8 +498,6 @@ class GameStateManager:
                 if event.key == pygame.K_SPACE:
                     self.game.start_up()
                     self.game_state = GameState.RUNNING
-
-
 
 
 class Particle(FlyingObject):

@@ -23,9 +23,13 @@ class LevelController:
     @staticmethod
     def activate_event(event_enum, spawn_time, **kwargs):
         event_id = event_enum.value
-        if spawn_time:
-            print(event_enum, kwargs)
-        pygame.time.set_timer(pygame.event.Event(event_id, **kwargs), spawn_time)
+        event = pygame.event.Event(event_id, **kwargs)
+        if spawn_time > 0:
+            print(event_id, spawn_time)
+        if spawn_time == 1: # spawn time of 1 means a single event, instead of timer
+            pygame.event.post(event)
+        else:
+            pygame.time.set_timer(event, spawn_time)
 
     def activate_next_level(self):
         # Pause between levels:
@@ -48,7 +52,20 @@ class LevelController:
     def create_levels():
         return [
             # Level 0
-            Level(10, 2000, []),
+            Level(10, 200, []),
+
+            Level(20000, 2000, [
+                (EnemySpawnEvent.SINESHIP, [1], {'shoot_time': 2, 'level': 2}),
+            ]),
+
+            Level(20000, 2000, [
+                (EnemySpawnEvent.CHASERSHIP, [1], {}),
+            ]),
+
+            Level(30000, 2000, [
+                (EnemySpawnEvent.ASTEROID, [2000], {}),
+                (EnemySpawnEvent.SWARM, [500], {})
+            ]),
 
             # LEVEL 1 - Asteroids
             Level(30000, 2000, [

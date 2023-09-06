@@ -2,11 +2,11 @@ import math
 import random
 
 import numpy as np
-import pygame
+import pygame.event
 
-from src.constants import FPS
+from src.constants import FPS, SIMPLE_BULLET_EVENT, TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT
 from src.flying_obj import FlyingObject, AnimatedFO
-from src.utils import SpriteSheet, scale_and_rotate, unit_vector
+from src.utils import SpriteSheet, scale_and_rotate, unit_vector, ConstantFireRate
 
 
 class Swarmer(FlyingObject):
@@ -21,15 +21,18 @@ class Swarmer(FlyingObject):
         self.min_angle = 181
 
     def update(self):
-        delta_x = self.target.x - self.x
-        delta_y = self.target.y - self.y
-        factor = self.speed / math.sqrt(delta_x ** 2 + delta_y ** 2)
-        self.speed_x = factor * delta_x
-        self.speed_y = factor * delta_y
+        # updade speed and angle based on target, if it is alive:
+        if self.target.health > 0:
+            delta_x = self.target.x - self.x
+            delta_y = self.target.y - self.y
+            factor = self.speed / math.sqrt(delta_x ** 2 + delta_y ** 2)
+            self.speed_x = factor * delta_x
+            self.speed_y = factor * delta_y
+            # Image angle:
+            angle = (math.degrees(math.atan2(self.speed_y, self.speed_x)) // 5 * 5 + 90) % 360
+            self.image = self.frames[angle]
+
         self.update_positon()
-        # Image angle:
-        angle = (math.degrees(math.atan2(self.speed_y, self.speed_x)) // 5 * 5 + 90) % 360
-        self.image = self.frames[angle]
 
 
 class Asteroid(FlyingObject):
@@ -48,27 +51,49 @@ class Asteroid(FlyingObject):
 
 
 class ChaserShip(FlyingObject):
-    def __init__(self, game, x, y, chase_trigger=5, chase_time=2, inertia=0.5):
-        image = scale_and_rotate(CHASER_SHIP_IMG, (90, 90), -90)
-        super().__init__(image, x, y, speed_x=-0.5)
+    def __init__(self, target, image, x, y, chase_trigger=5, chase_time=2, inertia=0.5):
+        super().__init__(image, x, y, speed_x=-0.5, health=50)
         self.move_trigger = FPS * chase_trigger
         self.move_counter = self.move_trigger
-        self.game = game
+        self.target = target
         self.inertia = inertia
         self.chase_time = chase_time
+        self.score = 100
 
     def update(self):
         super().update()
         self.move_counter -= 1
         if self.move_counter == 0:
             self.move_counter = self.move_trigger
-            dx = self.game.spaceship.x - self.x
-            dy = self.game.spaceship.y - self.y
+            dx = self.target.x - self.x
+            dy = self.target.y - self.y
             magnitude = math.sqrt(dx ** 2 + dy ** 2)
             self.speed_x = self.inertia * dx / magnitude
             self.speed_y = self.inertia * dy / magnitude
-            self.game.sprite_moves.add_absolute_move(self, target_x=self.game.spaceship.x,
-                                                     target_y=self.game.spaceship.y, time=self.chase_time)
+            pygame.event.post(pygame.Event(ABSOLUTE_MOVE_EVENT, target_object=self, target_x=self.target.x,
+                                           target_y=self.target.y, time=self.chase_time))
+
+
+class EllipseEnemy(FlyingObject):
+    """Class representing any enemy that moves in an ellipse around a point"""
+
+    def __init__(self, image, x_center, y_center, x_radius, y_radius, angle_speed, initial_angle=0, score=0):
+        super().__init__(image, x_center, y_center, health=100)
+        self.score = score
+        self.x_center = x_center
+        self.y_center = y_center
+        self.x_radius = x_radius
+        self.y_radius = y_radius
+        self.angle_speed = angle_speed
+        self.angle = initial_angle
+
+    def update(self):
+        self.x = self.x_center + self.x_radius * math.cos(math.radians(self.angle))
+        self.y = self.y_center + self.y_radius * math.sin(math.radians(self.angle))
+        self.angle += self.angle_speed
+        self.rect.center = round(self.x), round(self.y)
+
+        self.update_hit_image()
 
 
 class SlashBullet(AnimatedFO):
@@ -111,18 +136,16 @@ class SimpleBullet(FlyingObject):
 
 
 class SineShip(FlyingObject):
-    def __init__(self, enemy_spawner, sineship_image, x=0, y=0, speed_x=-3, speed_y=0, acceleration=0.2,
-                 acceleration_switch=30, shoot_time=2, first_shot_delay=0, kill_offset=200, level=1):
+    def __init__(self, sineship_image, x=0, y=0, speed_x=-3, speed_y=0, acceleration=0.2, acceleration_switch=30,
+                 shoot_time=2, kill_offset=200, level=1):
         super().__init__(sineship_image, x, y, speed_x=speed_x, speed_y=speed_y,
                          health=5, kill_offset=kill_offset,
                          hit_color=(255, 30, 30, 100), size=2)
-        self.enemy_spawner = enemy_spawner
         self.acceleration = acceleration
         self.acceleration_switch = acceleration_switch
         self.acceleration_timer = self.acceleration_switch
         self.score = 100 * level
-        self.shoot_time = FPS * shoot_time
-        self.shoot_time_count = self.shoot_time * (1 + first_shot_delay)
+        self.fire_rate = ConstantFireRate(rate=FPS * shoot_time)
         self.level = level
 
     def update(self):
@@ -134,20 +157,16 @@ class SineShip(FlyingObject):
             self.acceleration *= -1
 
         # Shoot
-        if self.shoot_time > 0:
-            if self.shoot_time_count <= 0:
-                self.shoot()
-                self.shoot_time_count = self.shoot_time
-            else:
-                self.shoot_time_count -= 1
+        if self.fire_rate.update_and_check_fire():
+            self.fire()
 
-    def shoot(self):
+    def fire(self):
         if self.level == 1:
-            self.enemy_spawner.spawn_simple_bullet(self.rect.left, self.y)
+            pygame.event.post(pygame.Event(SIMPLE_BULLET_EVENT, x=self.rect.left, y=self.y))
         elif self.level == 2:
-            self.enemy_spawner.spawn_targeted_round_bullet(self.rect.left, self.y)
+            pygame.event.post(pygame.Event(TARGETED_ROUND_BULLET_EVENT, x=self.rect.left, y=self.y))
         else:
-            raise (NotImplemented("No shoot for level 3+ sineship."))
+            raise (NotImplemented("No fire for level 3+ sineship."))
 
 
 class Gem(AnimatedFO):
@@ -158,7 +177,7 @@ class Gem(AnimatedFO):
         self.follow_speed = 6
         self.speed_x = -1
         self.spaceship = spaceship
-        self.score = 20 * 5 ** (level-1)
+        self.score = 20 * 5 ** (level - 1)
 
     def update(self):
         if self.is_following:
@@ -169,3 +188,5 @@ class Gem(AnimatedFO):
                     self.y - self.spaceship.y) <= self.spaceship.gem_auto_pickup_distance:
                 self.is_following = True
         super().update()
+
+# class Destroyer(FlyingObject):

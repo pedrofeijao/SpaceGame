@@ -5,7 +5,7 @@ import math
 def scale_and_rotate(image_path, scale_by=None, rotate=None, size=None):
     image = pygame.image.load(image_path)
     if type(scale_by) == tuple:
-        raise(Exception("ERROR!"))
+        raise (Exception("ERROR!"))
     if size:
         image = pygame.transform.scale(image, size)
     if scale_by:
@@ -51,3 +51,59 @@ def unit_vector(x1, y1, x2, y2, scale=1):
     dy = y2 - y1
     amp = math.sqrt(dx ** 2 + dy ** 2)
     return scale * dx / amp, scale * dy / amp
+
+
+class ConstantFireRate:
+    def __init__(self, rate):
+        self.rate = rate
+        self.index = 0
+
+    def update(self):
+        self.index -= 1
+
+    def check_fire(self):
+        if self.index <= 0:
+            self.index = self.rate
+            return True
+        return False
+
+    def update_and_check_fire(self):
+        self.update()
+        return self.check_fire()
+
+
+class BurstFireRate:
+    def __init__(self, rate, burst_rate, bursts):
+        self.rate = rate
+        self.burst_rate = burst_rate
+        self.bursts = bursts
+        self.index = 0
+        self.burst_index = 0
+        self.current_burst = 0
+
+    def update(self):
+        self.index -= 1
+        if self.bursts > 0:
+            self.burst_index -= 1
+
+    def check_fire(self):
+        if self.index <= 0 or (self.bursts > self.current_burst > 0 >= self.burst_index):
+            # cool down reset:
+            self.index = self.rate
+            if self.bursts > 0:
+                self.burst_index = self.burst_rate
+                if self.current_burst > 1:
+                    self.current_burst -= 1
+                else:
+                    self.current_burst = self.bursts
+
+            return True
+
+        if self.index <= 0:
+            self.index = self.rate
+            return True
+        return False
+
+    def update_and_check_fire(self):
+        self.update()
+        return self.check_fire()

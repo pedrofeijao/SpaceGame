@@ -120,7 +120,7 @@ class Explosion(pygame.sprite.Sprite):
         self.image = self.frames[0]
         self.rect = self.image.get_rect(center=(x, y))
         self.audio = pygame.mixer.Sound('assets/explosion.wav')
-        self.audio.set_volume(0.25)
+        self.audio.set_volume(0.1)
         self.audio.play()
 
     @staticmethod

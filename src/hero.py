@@ -7,7 +7,7 @@ import numpy as np
 from src.constants import SHIELD_INITIAL_DAMAGE, FPS, SPACESHIP_DESTROYED
 from src.upgrades import UpgradeController
 
-from src.utils import scale_and_rotate, SpriteSheet
+from src.utils import scale_and_rotate, SpriteSheet, ConstantFireRate, BurstFireRate
 from src.flying_obj import FlyingObject, AnimatedFO
 
 
@@ -21,7 +21,6 @@ class Spaceship(FlyingObject):
         self.shadow = pygame.transform.gaussian_blur(
             pygame.mask.from_surface(image, threshold=100).to_surface(unsetcolor=None).convert_alpha()
             , 3)
-        # self.shadow.set_alpha(40)
         super().__init__(image, x, y, health=200, collision_damage=2, hit_color=(255, 0, 0, 100))
 
         self.acceleration = 0.2
@@ -133,8 +132,10 @@ class Spaceship(FlyingObject):
         if self.health > 0:
 
             if keys[pygame.K_a]:
-                draw_window.blit(self.thruster_images[pygame.K_a], (self.rect.x + self.rect.width - 10, self.rect.y + 4))
-                draw_window.blit(self.thruster_images[pygame.K_a], (self.rect.x + self.rect.width - 10, self.rect.y + 32))
+                draw_window.blit(self.thruster_images[pygame.K_a],
+                                 (self.rect.x + self.rect.width - 10, self.rect.y + 4))
+                draw_window.blit(self.thruster_images[pygame.K_a],
+                                 (self.rect.x + self.rect.width - 10, self.rect.y + 32))
             if keys[pygame.K_d]:
                 draw_window.blit(self.thruster_images[pygame.K_d], (self.rect.x - 35, self.rect.y + 18))
 
@@ -223,7 +224,8 @@ class Projectile(FlyingObject):
 class Shield(FlyingObject):
     def __init__(self, spaceship):
         self.frames = {
-            idx: scale_and_rotate(f"assets/Sprites/Effects/shield{idx}.png", scale_by=0.8, rotate=-90) for idx in [1, 2, 3]
+            idx: scale_and_rotate(f"assets/Sprites/Effects/shield{idx}.png", scale_by=0.8, rotate=-90) for idx in
+            [1, 2, 3]
         }
         self.frames[0] = pygame.Surface((0, 0)).convert_alpha()
         super().__init__(self.frames[1], 0, 0, collision_damage=SHIELD_INITIAL_DAMAGE)
@@ -245,7 +247,6 @@ class Shield(FlyingObject):
             if self.shield_recharge <= 0:
                 self.current_shield += 1
                 self.shield_recharge = self.shield_recharge_time
-        print(self.current_shield)
         if self.current_shield > 0:
             self.image = self.frames[self.current_shield]
             self.x = self.spaceship.x
@@ -259,15 +260,15 @@ class WeaponsController:
         self.load_images()
 
         self.projectiles = pygame.sprite.Group()
-
+        self.projectile_size = 1
         self.spaceship = spaceship
         # self.fire_audio = pygame.mixer.Sound('assets/laserfire01.ogg')
         self.fire_audio = pygame.mixer.Sound('assets/Digital_SFX_Set/laser5.mp3')
 
         # Main weapon:
         self.projectile_damage = 1
-        self.fire_cooldown = 0
-        self.fire_cooldown_time = FPS * 0.5
+        self.fire_rate = BurstFireRate(rate=FPS * 0.5, burst_rate=FPS * 0.1, bursts=1)
+
         self.spread = 30
         self.n_projectiles = 1
         self.bursts = 1
@@ -310,7 +311,8 @@ class WeaponsController:
         # image = PROJECTILE_IMGS[round((90 - angle) % 360)]
         # image = scale_and_rotate(f"assets/Sprites/Laser Sprites/laserBlue01.png", (9, 54), 90 - angle)
         self.projectile_imgs = {
-            angle: scale_and_rotate(f"assets/Sprites/Laser Sprites/laserBlue06.png", 0.7, angle) for angle in
+            (size, angle): scale_and_rotate(f"assets/Sprites/Laser Sprites/laserBlue06.png", 0.35 * (size + 1), angle)
+            for size in [1, 2, 3, 4, 5] for angle in
             range(361)
         }
         ROCKET_SPRITE_SHEET = "assets/Sprites/Missiles/projectile_rocket_16x16.png"
@@ -349,8 +351,9 @@ class WeaponsController:
                 self.spread = 90
 
     def increase_burst(self):
+        self.fire_rate.bursts += 2
         self.bursts += 2
-        self.fire_cooldown_time *= 0.8 * self.bursts / (self.bursts - 2)
+        self.fire_rate.rate *= 0.8 * self.bursts / (self.bursts - 2)
 
     def wingman_fire(self, x, y):
         self.projectiles.add(Missile(self.missile_img, x + 10, y, damage=self.rocket_damage))
@@ -370,40 +373,26 @@ class WeaponsController:
 
         # Check guns:
         # if keys[pygame.K_SPACE]:
-        if self.spaceship.health > 0:
+        can_fire = self.spaceship.weapons.fire_rate.update_and_check_fire()
+        if self.spaceship.health > 0 and can_fire:
             self.fire()  # automatic fire
 
-        # Guns:
+        # update projectiles:
         self.projectiles.update()
-        self.fire_cooldown -= 1
-        if self.bursts > 0:
-            self.burst_cooldown -= 1
-        # print(self.burst_cooldown)
 
     def fire(self):
-        if self.fire_cooldown <= 0 or (
-                0 < self.current_burst < self.bursts and self.burst_cooldown <= 0):
-            self.fire_audio.play()
-            match self.n_projectiles:
-                case 1:
-                    self.create_projectile(speed=16, angle=0, damage=self.projectile_damage)
-                case 2:
-                    self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=-15)
-                    self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=+15)
-                case _:
-                    angles = np.linspace(-self.spread, self.spread, num=self.n_projectiles)
-                    for angle in angles:
-                        self.create_projectile(speed=16, angle=angle, damage=self.projectile_damage)
 
-            # cool down reset:
-            self.fire_cooldown = self.fire_cooldown_time
-            if self.bursts > 0:
-                if self.current_burst > 1:
-                    self.burst_cooldown = self.burst_cooldown_time
-                    self.current_burst -= 1
-                else:
-                    self.current_burst = self.bursts
-                    self.burst_cooldown = self.burst_cooldown_time
+        self.fire_audio.play()
+        match self.n_projectiles:
+            case 1:
+                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage)
+            case 2:
+                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=-15)
+                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=+15)
+            case _:
+                angles = np.linspace(-self.spread, self.spread, num=self.n_projectiles)
+                for angle in angles:
+                    self.create_projectile(speed=16, angle=angle, damage=self.projectile_damage)
 
     def draw(self, draw_window):
         self.wingmen.draw(draw_window)
@@ -419,7 +408,7 @@ class WeaponsController:
         speed_x = speed * math.cos(math.radians(angle))
         speed_y = speed * math.sin(math.radians(angle)) + self.spaceship.speed_y / 4
         rect = self.spaceship.rect
-        image = self.projectile_imgs[round((90 - angle) % 360)]
+        image = self.projectile_imgs[self.spaceship.weapons.projectile_size, round((90 - angle) % 360)]
 
         projectile = Projectile(image, rect.right - 10, rect.y + rect.height // 2 + y_offset,
                                 speed_x=speed_x, speed_y=speed_y, damage=damage)
