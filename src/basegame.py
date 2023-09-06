@@ -23,8 +23,8 @@ class Game:
         # Set the dimensions of the window
         # pygame.display.set_caption("Spaceship Simulation")
         pygame.init()
-        # self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        self.window = pygame.display.set_mode((1200,800))
+        self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        # self.window = pygame.display.set_mode((1200,800))
 
         self.width = self.window.get_width()
         self.height = self.window.get_height()
