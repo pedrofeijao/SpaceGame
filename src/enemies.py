@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 import pygame.event
+import pytweening
 
 from src.constants import FPS, SIMPLE_BULLET_EVENT, TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT
 from src.flying_obj import FlyingObject, AnimatedFO
@@ -51,7 +52,7 @@ class Asteroid(FlyingObject):
 
 
 class ChaserShip(FlyingObject):
-    def __init__(self, target, image, x, y, chase_trigger=5, chase_time=2, inertia=0.5):
+    def __init__(self, target, image, x, y, chase_trigger=3, chase_time=2, inertia=0.5):
         super().__init__(image, x, y, speed_x=-0.5, health=50)
         self.move_trigger = FPS * chase_trigger
         self.move_counter = self.move_trigger
@@ -190,3 +191,5 @@ class Gem(AnimatedFO):
         super().update()
 
 # class Destroyer(FlyingObject):
+
+

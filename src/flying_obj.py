@@ -1,7 +1,9 @@
+import math
 import random
 
 import pygame
 
+from src.constants import FPS
 from src.utils import scale_and_rotate, SpriteSheet
 
 
@@ -144,4 +146,21 @@ class Explosion(pygame.sprite.Sprite):
             else:
                 self.image = self.frames[self.active_frame]
                 self.rect = self.image.get_rect(center=self.rect.center)
+
+
+class Damage(FlyingObject):
+    def __init__(self, x, y, value, font, fade= FPS * 1):
+        font_img = font.render(str(value), True, pygame.Color('red'))
+        angle = random.randint(0, 360)
+        super().__init__(font_img, x, y, speed_x=math.cos(math.radians(angle)), speed_y=math.sin(math.radians(angle)))
+        self.fade = fade
+        self.alpha = 255
+
+    def update(self):
+        self.update_positon()
+        self.fade -= 1
+        self.alpha -= 2
+        self.image.set_alpha(self.alpha)
+        if self.fade <= 0:
+            self.kill()
 
