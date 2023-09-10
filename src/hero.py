@@ -165,7 +165,6 @@ class Spaceship(FlyingObject):
 
 class Missile(AnimatedFO):
     def __init__(self, missile_img, x, y, speed_x=3.0, speed_y=0.0, accel_x=0.1, damage=3):
-        print(f"MISSILE SPEED: {speed_x}")
         super().__init__(missile_img, 4, x, y, speed_x, speed_y, accel_x=accel_x)
         self.damage = damage
 

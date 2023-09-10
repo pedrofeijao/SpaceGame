@@ -55,16 +55,17 @@ class LevelController:
             Level(10, 200, []),
 
             Level(20000, 2000, [
-                (EnemySpawnEvent.CHASERSHIP, [1], {}),
-            ]),
-
-            Level(20000, 2000, [
                 (EnemySpawnEvent.SINESHIP, [1000], {'shoot_time': 2, 'level': 2}),
             ]),
 
             Level(20000, 2000, [
-                (EnemySpawnEvent.CHASERSHIP, [1], {}),
+                (EnemySpawnEvent.SPREADBOSS, [1], {}),
             ]),
+
+            #
+            # Level(20000, 2000, [
+            #     (EnemySpawnEvent.CHASERSHIP, [1], {}),
+            # ]),
 
             Level(30000, 2000, [
                 (EnemySpawnEvent.ASTEROID, [2000], {}),

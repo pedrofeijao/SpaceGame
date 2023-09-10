@@ -7,10 +7,10 @@ from src import gradient
 from src.constants import GameState, STATUS_BAR_HEIGHT, NEXT_LEVEL_EVENT, \
     HEALTH_BAR_HEIGHT, BG_SPEED, PLANET_EVENT, ANCHORED_OFFSET_EVENT, SPACESHIP_DESTROYED, \
     UPGRADE_BAR_TOP, UPGRADE_BAR_LEFT, UPGRADE_ICON_SIZE, UPGRADE_BAR_SPACING, SIMPLE_BULLET_EVENT, \
-    TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT, EnemySpawnEvent
-from src.enemies import Asteroid, Swarmer, SineShip
+    TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT, EnemySpawnEvent, ANGLED_ROUND_BULLET_EVENT
+from src.enemies import Asteroid, Swarmer, SineShip, HealthBarEnemy
 from src.enemy_spawner import EnemySpawner
-from src.flying_obj import Planet, Explosion, Damage
+from src.flying_obj import Planet, Explosion, Damage, FlyingObject
 from src.gui import SelectBox
 from src.hero import Spaceship
 from src.levels import LevelController
@@ -206,6 +206,9 @@ class Game:
                 if event.type == TARGETED_ROUND_BULLET_EVENT:
                     self.enemy_spawner.spawn_targeted_round_bullet(**event.dict)
 
+                if event.type == ANGLED_ROUND_BULLET_EVENT:
+                    self.enemy_spawner.spawn_angled_round_bullet(**event.dict)
+
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_u:
                         self.state_manager.game_state = GameState.UPGRADE
@@ -303,6 +306,12 @@ class Game:
     def draw_action(self, add_scroll=True, spaceship=True):
         self.background.update_and_draw(add_scroll)
         self.enemy_spawner.all_enemies.draw(self.window)
+
+        # health bar:
+        for enemy in self.enemy_spawner.all_enemies.sprites():
+            if isinstance(enemy, HealthBarEnemy):
+                self.draw_health_bar(enemy)
+
         self.enemy_spawner.gems.draw(self.window)
         self.effects.draw(self.window)
         if spaceship:
@@ -395,6 +404,10 @@ class Game:
         except:
             # did not recognize
             pass
+
+    def draw_health_bar(self, enemy: FlyingObject):
+        pygame.draw.rect(self.window, pygame.Color('red'),
+                         pygame.rect.Rect(enemy.rect.left + 20, enemy.rect.top - 10, enemy.health, 4))
 
 
 class GameStateManager:

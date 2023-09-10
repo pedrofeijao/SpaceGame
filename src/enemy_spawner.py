@@ -3,14 +3,14 @@ import random
 
 import numpy as np
 import pygame
-import pytweening
 
-from src.constants import EnemySpawnEvent, SIMPLE_BULLET_EVENT
+from src.constants import EnemySpawnEvent
 from src.enemies import Swarmer, Asteroid, SlashBullet, FireBullet, SineShip, SimpleBullet, RoundBullet, Gem, \
-    ChaserShip, EllipseEnemy
+    ChaserShip, SpreadBulletBoss
 from src.utils import unit_vector, SpriteSheet, scale_and_rotate
 
 CHASER_SHIP_IMG = "assets/Sprites/Ships/spaceShips_007.png"
+SPREAD_BOSS_IMG = "assets/Sprites/Enemies/enemyGreen4.png"
 FIRE_BULLET_IMG = "assets/Sprites/Fire/3/Fire-Wrath__1{}.png"
 SLASH_BULLET_IMG = "assets/Sprites/Slash/Alternative 3/1/Alternative_3_0{}.png"
 ASTEROID_IMG = "assets/Sprites/Meteors/meteorBrown_big{}.png"
@@ -51,10 +51,13 @@ class EnemySpawner:
                                                  target_y=y, time=1)
         self.add_enemy_ship_sprite(ship)
 
-    def spawn_ellipse(self):
-        x, y, x_radius, y_radius, angle_speed = 1300, 500, 200, 300, 1
-        ship = EllipseEnemy(self.images.chasership_image, x, y,
-                            x_radius=x_radius, y_radius=y_radius, angle_speed=angle_speed)
+    def spawn_spread_bullet_boss(self, **kwargs):
+        x = self.game.width - self.images.chasership_image.get_width() - 300
+        y = self.game.height // 2
+        x_radius = 100
+        y_radius = 200
+        ship = SpreadBulletBoss(self.images.spread_boss, x, y,
+                            x_radius=x_radius, y_radius=y_radius, angle_speed=0.2, score=1000, **kwargs)
         self.game.sprite_moves.add_anchored_offset(ship, target_x=500, target_y=0, time=2)
         self.add_enemy_ship_sprite(ship)
         print(ship)
@@ -104,7 +107,14 @@ class EnemySpawner:
 
     def spawn_targeted_round_bullet(self, x, y, speed=6, **kwargs):
         target_vector = unit_vector(x, y, self.game.spaceship.x, self.game.spaceship.y)
-        bullet = RoundBullet(self.images.round_bullet_frames, x, y, speed_x=speed * target_vector[0], speed_y=speed * target_vector[1])
+        bullet = RoundBullet(self.images.round_bullet_frames, x, y,
+                             speed_x=speed * target_vector[0], speed_y=speed * target_vector[1], **kwargs)
+        self.add_enemy_projectile_sprite(bullet)
+
+    def spawn_angled_round_bullet(self, x, y, angle, speed=6, **kwargs):
+        target_x = math.cos(math.radians(angle))
+        target_y = math.sin(math.radians(angle))
+        bullet = RoundBullet(self.images.round_bullet_frames, x, y, speed_x=speed * target_x, speed_y=speed * target_y)
         self.add_enemy_projectile_sprite(bullet)
 
     def spawn_gem(self, x, y, level=1):
@@ -130,7 +140,10 @@ class EnemySpawner:
 
             case EnemySpawnEvent.CHASERSHIP.value:
                 self.spawn_chasership(self.game.width + 100, random.randint(0, self.game.height), **event.dict)
-                # self.spawn_ellipse()
+
+            case EnemySpawnEvent.SPREADBOSS.value:
+                self.spawn_spread_bullet_boss(**event.dict)
+
 
 
 
@@ -147,6 +160,7 @@ class EnemyImages():
         self.chasership_image = scale_and_rotate(CHASER_SHIP_IMG, scale_by=1, rotate=90)
         self.sineship_image = scale_and_rotate('assets/Sprites/Enemies/enemyBlack1.png', scale_by=0.5, rotate=-90)
         self.simple_bullet_img = scale_and_rotate(f"assets/Sprites/Laser Sprites/laserRed02.png", rotate=-90)
+        self.spread_boss = scale_and_rotate(SPREAD_BOSS_IMG, scale_by=2, rotate=-90)
 
         round_bullet_sheet = SpriteSheet(
             pygame.image.load("assets/Sprites/Laser Sprites/round_bullet.png").convert_alpha())

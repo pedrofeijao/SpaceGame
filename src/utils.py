@@ -73,13 +73,13 @@ class ConstantFireRate:
 
 
 class BurstFireRate:
-    def __init__(self, rate, burst_rate, bursts):
+    def __init__(self, rate, burst_rate, bursts, initial_delay=0):
         self.rate = rate
         self.burst_rate = burst_rate
         self.bursts = bursts
-        self.index = 0
+        self.index = initial_delay
         self.burst_index = 0
-        self.current_burst = 0
+        self.current_burst = bursts
 
     def update(self):
         self.index -= 1

@@ -97,11 +97,13 @@ class UpgradeController:
 
             case UpgradeType.DAMAGE:
                 # 30% more damage
-                self.spaceship.weapons.rocket_damage *= 1.3
-                self.spaceship.weapons.projectile_damage *= 1.3
+                self.spaceship.weapons.rocket_damage *= 1.2
+                self.spaceship.weapons.projectile_damage *= 1.2
 
             case UpgradeType.PROJECTILE_SIZE:
                 self.spaceship.weapons.projectile_size += 1
+                self.spaceship.weapons.projectile_damage *= 1.4
+                self.spaceship.weapons.fire_rate.rate *= 1.2
                 self.spaceship.weapons.projectile_size = min(5, self.spaceship.weapons.projectile_size)
 
             case UpgradeType.GEM_RADIUS:

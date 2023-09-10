@@ -5,9 +5,10 @@ import numpy as np
 import pygame.event
 import pytweening
 
-from src.constants import FPS, SIMPLE_BULLET_EVENT, TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT
+from src.constants import FPS, SIMPLE_BULLET_EVENT, TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT, \
+    ANGLED_ROUND_BULLET_EVENT
 from src.flying_obj import FlyingObject, AnimatedFO
-from src.utils import SpriteSheet, scale_and_rotate, unit_vector, ConstantFireRate
+from src.utils import SpriteSheet, scale_and_rotate, unit_vector, ConstantFireRate, BurstFireRate
 
 
 class Swarmer(FlyingObject):
@@ -78,8 +79,9 @@ class ChaserShip(FlyingObject):
 class EllipseEnemy(FlyingObject):
     """Class representing any enemy that moves in an ellipse around a point"""
 
-    def __init__(self, image, x_center, y_center, x_radius, y_radius, angle_speed, initial_angle=0, score=0):
-        super().__init__(image, x_center, y_center, health=100)
+    def __init__(self, image, x_center, y_center, x_radius, y_radius, angle_speed, initial_angle=0, score=0,
+                 bullet_damage=20, **kwargs):
+        super().__init__(image, x_center, y_center, **kwargs)
         self.score = score
         self.x_center = x_center
         self.y_center = y_center
@@ -87,14 +89,45 @@ class EllipseEnemy(FlyingObject):
         self.y_radius = y_radius
         self.angle_speed = angle_speed
         self.angle = initial_angle
+        self.bullet_damage = bullet_damage
 
     def update(self):
         self.x = self.x_center + self.x_radius * math.cos(math.radians(self.angle))
         self.y = self.y_center + self.y_radius * math.sin(math.radians(self.angle))
         self.angle += self.angle_speed
         self.rect.center = round(self.x), round(self.y)
-
         self.update_hit_image()
+
+
+class HealthBarEnemy:
+    """
+    Adds a health bar, for boss enemies
+    """
+    pass
+
+
+class SpreadBulletBoss(EllipseEnemy, HealthBarEnemy):
+    def __init__(self, image, x_center, y_center, x_radius, y_radius, angle_speed, score, health=100):
+        super().__init__(image, x_center, y_center, x_radius, y_radius, angle_speed, initial_angle=0,
+                         score=score, health=health, size=3)
+        self.fire_rate = BurstFireRate(rate=FPS * 4, burst_rate=0.1 * FPS, bursts=20, initial_delay=FPS * 2)
+        self.fire_angles = np.arange(121, 240, 12)
+        self.fire_angle_idx = 0
+        self.angle_direction = 1
+
+    def update(self):
+        super().update()
+        if self.fire_rate.update_and_check_fire():
+            pygame.event.post(pygame.Event(ANGLED_ROUND_BULLET_EVENT, x=self.rect.left, y=self.y, damage=self.bullet_damage,
+                                           angle=self.fire_angles[self.fire_angle_idx]))
+            self.fire_angle_idx += self.angle_direction
+            if self.fire_angle_idx < 0:
+                self.fire_angle_idx = 0
+                self.angle_direction = 1
+            if self.fire_angle_idx >= len(self.fire_angles):
+                self.fire_angle_idx = len(self.fire_angles) - 1
+                self.angle_direction = -1
+
 
 
 class SlashBullet(AnimatedFO):
