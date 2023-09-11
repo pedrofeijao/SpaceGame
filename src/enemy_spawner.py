@@ -60,12 +60,12 @@ class EnemySpawner:
                             x_radius=x_radius, y_radius=y_radius, angle_speed=0.2, score=1000, **kwargs)
         self.game.sprite_moves.add_anchored_offset(ship, target_x=500, target_y=0, time=2)
         self.add_enemy_ship_sprite(ship)
-        print(ship)
 
     def spawn_asteroid(self):
+        size = random.randint(2, 3)
         for idx in range(10):  # try a few times to get an asteroid without collision with existing ones
             asteroid = Asteroid(self.images.asteroid_images, ASTEROID_ANGLES, self.game.width,
-                                random.randint(100, self.game.height - 100))
+                                random.randint(100, self.game.height - 100), size=size)
             if pygame.sprite.spritecollide(asteroid, self.enemy_ships, False):
                 asteroid.kill()
             else:
@@ -117,9 +117,17 @@ class EnemySpawner:
         bullet = RoundBullet(self.images.round_bullet_frames, x, y, speed_x=speed * target_x, speed_y=speed * target_y)
         self.add_enemy_projectile_sprite(bullet)
 
-    def spawn_gem(self, x, y, level=1):
-        gem = Gem(self.images.gem_images[level], frame_wait=20, spaceship=self.game.spaceship, x=x, y=y, level=level)
-        self.add_gem(gem)
+    def spawn_gem(self, x, y, level=1, n_gems=1):
+        if n_gems == 1:
+            angles = [0]
+        else:
+            angles = np.arange(360, step=360/n_gems) + 90
+        for angle in angles:
+            speed_x = 4 * math.cos(math.radians(angle))
+            speed_y = 4 * math.sin(math.radians(angle))
+            gem = Gem(self.images.gem_images[level], frame_wait=20, spaceship=self.game.spaceship, x=x, y=y,
+                      speed_x=speed_x, speed_y=speed_y, level=level)
+            self.add_gem(gem)
 
     def check_spawn_events(self, event):
         match event.type:

@@ -14,7 +14,7 @@ if __name__ == "__main__":
         # Update the display
         pygame.display.flip()
 
-        # Cap the frame rate
+        # if game.state_manager.game_state == GameState.RUNNING:
         dt = game.clock.tick(FPS) / 1000.0  # Divide by 1000.0 to get dt (time_passed) in seconds
 
     # Quit Pygame

@@ -8,9 +8,9 @@ from src.constants import GameState, STATUS_BAR_HEIGHT, NEXT_LEVEL_EVENT, \
     HEALTH_BAR_HEIGHT, BG_SPEED, PLANET_EVENT, ANCHORED_OFFSET_EVENT, SPACESHIP_DESTROYED, \
     UPGRADE_BAR_TOP, UPGRADE_BAR_LEFT, UPGRADE_ICON_SIZE, UPGRADE_BAR_SPACING, SIMPLE_BULLET_EVENT, \
     TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT, EnemySpawnEvent, ANGLED_ROUND_BULLET_EVENT
-from src.enemies import Asteroid, Swarmer, SineShip, HealthBarEnemy
+from src.enemies import Asteroid, Swarmer, SineShip, HealthBarEnemy, SpreadBulletBoss
 from src.enemy_spawner import EnemySpawner
-from src.flying_obj import Planet, Explosion, Damage, FlyingObject
+from src.flying_obj import Planet, Explosion, Damage, FlyingObject, UpgradePoint
 from src.gui import SelectBox
 from src.hero import Spaceship
 from src.levels import LevelController
@@ -75,19 +75,16 @@ class Game:
         # enemy spawn:
         self.enemy_spawner = EnemySpawner(self)
 
-        # # enemy = Enemy(self, WIDTH + 100, HEIGHT // 2)
-        # # self.asteroids.add(enemy)
-        # self.sprite_moves.add_relative_move(enemy, -550, 0, time=1.5)
-        # self.sprite_moves.add_relative_move(enemy, 0, -200, time=2)
 
         self.score = 0
+        self.upgrade_score = 0
         self.upgrade_level = 1
         self.next_upgrade = self.calc_next_upgrade()
 
         self.game_time = 0
 
     def calc_next_upgrade(self):
-        return self.upgrade_level * (self.upgrade_level + 1) * 100
+        return 100 * (self.upgrade_level + 1)
 
     def create_explosion(self, x, y, size):
         explosion = Explosion.create(x, y, size)
@@ -95,6 +92,10 @@ class Game:
 
     def create_damage_marker(self, x, y, damage):
         sprite = Damage(x, y, round(10 * damage), self.status_font)
+        self.effects.add(sprite)
+
+    def create_upgrade_points_marker(self, x, y, points):
+        sprite = UpgradePoint(x, y, points, self.status_font)
         self.effects.add(sprite)
 
     def check_projectile_hits(self, projectiles, kill_projectile=True):
@@ -125,8 +126,9 @@ class Game:
         if hits:
             for gem in hits:
                 gem.kill()
+                self.create_upgrade_points_marker(gem.x, gem.y, gem.upgrade_score)
                 self.gem_audio.play()
-                self.score += gem.score
+                self.upgrade_score += gem.upgrade_score
 
     def check_rotating_shield_hits(self):
         hits = group_two_pass_collision(self.spaceship.weapons.rotating_shields, self.enemy_spawner.enemy_ships, False,
@@ -162,19 +164,20 @@ class Game:
         self.create_explosion(enemy.rect.center[0], enemy.rect.center[1], enemy.size)
         self.score += enemy.score
         # Special cases:
-        if type(enemy) == Asteroid and enemy.size > 1:  # breaks the asteroid in 2:
+        if isinstance(enemy, Asteroid) and enemy.size > 1:  # breaks the asteroid in 2:
             self.enemy_spawner.spawn_smaller_asteroids(enemy)
         # Gem: each enemy might spawn a different type at some point. For now all the same
-        if type(enemy) == Swarmer:
-            if random.random() < 0.3:
-                self.enemy_spawner.spawn_gem(enemy.x, enemy.y)
-        if type(enemy) == Asteroid and enemy.size == 1:
-            self.enemy_spawner.spawn_gem(enemy.x, enemy.y)
-
-        if type(enemy) == SineShip:
-            self.enemy_spawner.spawn_gem(enemy.x, enemy.y, level=2)
+        if isinstance(enemy, Swarmer):
+            self.enemy_spawner.spawn_gem(enemy.x, enemy.y, n_gems=1, level=1)
+        if isinstance(enemy, Asteroid) and enemy.size == 1:
+            self.enemy_spawner.spawn_gem(enemy.x, enemy.y, n_gems=2)
+        if isinstance(enemy, SineShip):
+            self.enemy_spawner.spawn_gem(enemy.x, enemy.y, n_gems=2, level=2)
+        if isinstance(enemy, SpreadBulletBoss):
+            self.enemy_spawner.spawn_gem(enemy.x, enemy.y, n_gems=6, level=2)
 
     def event_handling(self):
+        # print(f"NEXT_LEVEL in event list: {pygame.event.peek(NEXT_LEVEL_EVENT)}")
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.state_manager.game_state = GameState.QUIT
@@ -256,24 +259,21 @@ class Game:
         self.draw_upgrade_status()
 
     def draw_spaceship_health(self):
-        HEALTH_BAR_WIDTH = self.spaceship.max_health
+        health_bar_width = self.spaceship.max_health
         health_pos_top = self.height - HEALTH_BAR_HEIGHT - 5
-        health_pos_left = (self.width - HEALTH_BAR_WIDTH) // 2
+        health_pos_left = (self.width - health_bar_width) // 2
         pygame.draw.rect(self.window, pygame.Color('gray40'),
-                         pygame.rect.Rect(health_pos_left - 1, health_pos_top - 1, HEALTH_BAR_WIDTH + 2,
+                         pygame.rect.Rect(health_pos_left - 1, health_pos_top - 1, health_bar_width + 2,
                                           HEALTH_BAR_HEIGHT + 2), border_radius=0)
         pygame.draw.rect(self.window, pygame.Color('red'),
-                         pygame.rect.Rect(health_pos_left, health_pos_top, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT))
+                         pygame.rect.Rect(health_pos_left, health_pos_top, health_bar_width, HEALTH_BAR_HEIGHT))
         health_size = round(self.spaceship.health)  # /  * HEALTH_BAR_WIDTH)
-        damage_size = round((self.spaceship.health_bar - self.spaceship.health) / 100 * HEALTH_BAR_WIDTH)
+        damage_size = round((self.spaceship.health_bar - self.spaceship.health) / 100 * health_bar_width)
         health_pos = health_size + health_pos_left
-        health_gain_pos = round(self.spaceship.health_bar / 100 * HEALTH_BAR_WIDTH) + health_pos_left
-        health_gain_size = health_pos - health_gain_pos
-        # pygame.draw.rect(self.window, pygame.Color('gray'),
-        #                  pygame.rect.Rect(health_pos, 10, W - health_size, 15))
+        health_gain_pos = round(self.spaceship.health_bar / 100 * health_bar_width) + health_pos_left
         if self.spaceship.health < self.spaceship.max_health:
             self.window.blit(
-                gradient.horizontal((HEALTH_BAR_WIDTH - health_size, HEALTH_BAR_HEIGHT), pygame.Color('gray60'),
+                gradient.horizontal((health_bar_width - health_size, HEALTH_BAR_HEIGHT), pygame.Color('gray60'),
                                     pygame.Color('gray30')),
                 (health_pos, health_pos_top))
         if self.spaceship.health_bar > self.spaceship.health:
@@ -282,10 +282,6 @@ class Game:
             self.window.blit(
                 gradient.horizontal((damage_size, HEALTH_BAR_HEIGHT), pygame.Color('red'), pygame.Color('yellow')),
                 (health_pos, health_pos_top))
-        # if self.spaceship.health_bar < self.spaceship.health:
-        #     self.window.blit(gradient.horizontal((health_gain_size, HEALTH_BAR_HEIGHT),
-        #                                          pygame.Color('red'), pygame.Color('blue')),
-        #                      (health_gain_pos, health_pos_top))
 
     def draw_top_status_bar(self):
         pygame.draw.rect(self.window, pygame.Color('black'),
@@ -293,7 +289,7 @@ class Game:
         pygame.draw.rect(self.window, pygame.Color('cadetblue2'),
                          pygame.rect.Rect(0, STATUS_BAR_HEIGHT, self.window.get_width(), 3))
         score_text = self.status_font.render(
-            f"Score: {self.score}/{self.next_upgrade}", True, pygame.Color('chartreuse3'))
+            f"Score: {self.upgrade_score}/{self.next_upgrade}  Time: {self.game_time:.1f}", True, pygame.Color('chartreuse3'))
         self.window.blit(score_text, (10, 10))
         score_text = self.status_font.render(
             f"Level: {self.level_controller.current_level}", True, pygame.Color('chartreuse3'))
@@ -440,7 +436,8 @@ class GameStateManager:
             self.game.game_time += dt
 
         # Upgrade by points:
-        if self.game.score >= self.game.next_upgrade and self.game_state == GameState.RUNNING:
+        if self.game.upgrade_score >= self.game.next_upgrade and self.game_state == GameState.RUNNING:
+            self.game.upgrade_score -= self.game.next_upgrade
             self.game_state = GameState.UPGRADE
             self.game.upgrade_level += 1
             self.game.next_upgrade = self.game.calc_next_upgrade()
@@ -491,6 +488,7 @@ class GameStateManager:
                 self.game_state = GameState.QUIT
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
+                    self.game.level_controller.activate_next_level()
                     self.game_state = GameState.RUNNING
 
     def game_running_state(self):
@@ -514,6 +512,10 @@ class GameStateManager:
 
         # Kill sprites outside of screen:
         self.game.kill_all_offbound_sprites()
+
+        # Check next level trigger / level enemy spawn:
+        self.game.level_controller.update()
+
         # Draw screen:
         self.game.draw_action()
 
@@ -548,6 +550,8 @@ class GameStateManager:
 
         for event in pygame.event.get():
             match event.type:
+                case EnemySpawnEvent.SWARM.value:  # DEBUG
+                    print("SWARM")
                 case pygame.QUIT:
                     self.game_state = GameState.QUIT
                 case pygame.KEYDOWN:

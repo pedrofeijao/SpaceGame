@@ -53,6 +53,7 @@ class Spaceship(FlyingObject):
 
     def update(self):
         keys = self.apply_acceleration()
+        self.health = 200
         # Health:
         if self.health > self.max_health:
             self.health = self.max_health
@@ -269,7 +270,7 @@ class WeaponsController:
         self.fire_rate = BurstFireRate(rate=FPS * 0.5, burst_rate=FPS * 0.1, bursts=1)
 
         self.spread = 30
-        self.n_projectiles = 1
+        self.n_projectiles = 6
         self.bursts = 1
         self.current_burst = 1
         self.burst_cooldown_time = 3
@@ -344,8 +345,8 @@ class WeaponsController:
             self.spread = 20
             self.n_projectiles = 2
         else:
-            self.n_projectiles += 1
-            self.spread *= 1.2
+            self.n_projectiles += 2
+            self.spread *= 1.5
             if self.spread > 90:
                 self.spread = 90
 
@@ -385,13 +386,13 @@ class WeaponsController:
         match self.n_projectiles:
             case 1:
                 self.create_projectile(speed=16, angle=0, damage=self.projectile_damage)
-            case 2:
+            case _:
                 self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=-15)
                 self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=+15)
-            case _:
-                angles = np.linspace(-self.spread, self.spread, num=self.n_projectiles)
-                for angle in angles:
-                    self.create_projectile(speed=16, angle=angle, damage=self.projectile_damage)
+                if self.n_projectiles > 2:
+                    angles = np.linspace(-self.spread, self.spread, num=self.n_projectiles - 2)
+                    for angle in angles:
+                        self.create_projectile(speed=16, angle=angle, damage=self.projectile_damage)
 
     def draw(self, draw_window):
         self.wingmen.draw(draw_window)

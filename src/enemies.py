@@ -6,7 +6,7 @@ import pygame.event
 import pytweening
 
 from src.constants import FPS, SIMPLE_BULLET_EVENT, TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT, \
-    ANGLED_ROUND_BULLET_EVENT
+    ANGLED_ROUND_BULLET_EVENT, NEXT_LEVEL_EVENT
 from src.flying_obj import FlyingObject, AnimatedFO
 from src.utils import SpriteSheet, scale_and_rotate, unit_vector, ConstantFireRate, BurstFireRate
 
@@ -42,7 +42,7 @@ class Asteroid(FlyingObject):
     def __init__(self, asteroid_images, angles, x, y, size=3, speed_x=0.0, speed_y=0.0):
         angle = random.choice(angles)
         image_idx = random.randint(1, 4)
-        speed_x = speed_x or -3 * random.random() - 2
+        speed_x = speed_x or -2 * random.random() - 1
         speed_y = speed_y or 1 - 2 * random.random()
         super().__init__(asteroid_images[image_idx, size, angle], x, y, speed_x, speed_y, size=size, health=size,
                          collision_damage=size * 10)
@@ -107,7 +107,7 @@ class HealthBarEnemy:
 
 
 class SpreadBulletBoss(EllipseEnemy, HealthBarEnemy):
-    def __init__(self, image, x_center, y_center, x_radius, y_radius, angle_speed, score, health=100):
+    def __init__(self, image, x_center, y_center, x_radius, y_radius, angle_speed, score, health=300):
         super().__init__(image, x_center, y_center, x_radius, y_radius, angle_speed, initial_angle=0,
                          score=score, health=health, size=3)
         self.fire_rate = BurstFireRate(rate=FPS * 4, burst_rate=0.1 * FPS, bursts=20, initial_delay=FPS * 2)
@@ -128,6 +128,9 @@ class SpreadBulletBoss(EllipseEnemy, HealthBarEnemy):
                 self.fire_angle_idx = len(self.fire_angles) - 1
                 self.angle_direction = -1
 
+    def kill(self) -> None:
+        pygame.event.post(pygame.Event(NEXT_LEVEL_EVENT))
+        super().kill()
 
 
 class SlashBullet(AnimatedFO):
@@ -204,23 +207,28 @@ class SineShip(FlyingObject):
 
 
 class Gem(AnimatedFO):
-    def __init__(self, gem_images, frame_wait, spaceship, x, y, level=1):
-        super().__init__(gem_images, frame_wait, x, y)
+    def __init__(self, gem_images, frame_wait, spaceship, x, y, level=1, speed_x=-2, speed_y=8):
+        super().__init__(gem_images, frame_wait, x, y, speed_x=speed_x, speed_y=speed_y)
+        self.default_speed_x = random.randint(-160, -100) / 100
         self.level = level
         self.is_following = False
         self.follow_speed = 6
-        self.speed_x = -1
         self.spaceship = spaceship
-        self.score = 20 * 5 ** (level - 1)
+        self.upgrade_score = 40 * 5 ** (level - 1)
 
     def update(self):
         if self.is_following:
             self.speed_x, self.speed_y = unit_vector(self.x, self.y, self.spaceship.x, self.spaceship.y,
                                                      scale=self.follow_speed)
+            self.follow_speed *= 1.01
         else:
             if abs(self.x - self.spaceship.x) + abs(
                     self.y - self.spaceship.y) <= self.spaceship.gem_auto_pickup_distance:
                 self.is_following = True
+            else:
+                self.speed_y *= 0.95
+                if self.speed_x != self.default_speed_x:
+                    self.speed_x += 0.05 * (self.default_speed_x - self.speed_x)
         super().update()
 
 # class Destroyer(FlyingObject):

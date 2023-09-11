@@ -67,10 +67,10 @@ class UpgradeController:
 
             case UpgradeType.FIRE_RATE:
                 # 15% faster, every level
-                self.spaceship.weapons.fire_rate.rate *= 0.85
+                self.spaceship.weapons.fire_rate.rate *= 0.8
 
             case UpgradeType.PROJECTILE:
-                # add one projectile, every level.
+                # add one or more projectiles, every level.
                 self.spaceship.weapons.increase_projectiles()
 
             case UpgradeType.SHIELD:
@@ -97,20 +97,20 @@ class UpgradeController:
 
             case UpgradeType.DAMAGE:
                 # 30% more damage
-                self.spaceship.weapons.rocket_damage *= 1.2
-                self.spaceship.weapons.projectile_damage *= 1.2
+                self.spaceship.weapons.rocket_damage *= 1.5
+                self.spaceship.weapons.projectile_damage *= 1.5
 
             case UpgradeType.PROJECTILE_SIZE:
                 self.spaceship.weapons.projectile_size += 1
-                self.spaceship.weapons.projectile_damage *= 1.4
-                self.spaceship.weapons.fire_rate.rate *= 1.2
+                self.spaceship.weapons.projectile_damage *= 2
+                self.spaceship.weapons.fire_rate.rate *= 1.5
                 self.spaceship.weapons.projectile_size = min(5, self.spaceship.weapons.projectile_size)
 
             case UpgradeType.GEM_RADIUS:
                 self.spaceship.gem_auto_pickup_distance += 100
 
             case UpgradeType.SPREAD:
-                self.spaceship.weapons.spread *= 0.6
+                self.spaceship.weapons.spread *= 0.5
 
             case _:
                 print(f"Upgrade {upgrade_type} is not implemented yet!!!")
