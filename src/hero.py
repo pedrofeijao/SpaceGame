@@ -216,8 +216,8 @@ class RotatingShield(FlyingObject):
 
 class Projectile(FlyingObject):
 
-    def __init__(self, image, x, y, speed_x=12.0, speed_y=0.0, damage=1):
-        super().__init__(image, x, y, speed_x, speed_y)
+    def __init__(self, image, x, y, speed_x=12.0, speed_y=0.0, damage=1, health=1):
+        super().__init__(image, x, y, speed_x, speed_y, health=health)
         self.damage = damage
 
 
@@ -270,7 +270,7 @@ class WeaponsController:
         self.fire_rate = BurstFireRate(rate=FPS * 0.5, burst_rate=FPS * 0.1, bursts=1)
 
         self.spread = 30
-        self.n_projectiles = 6
+        self.n_projectiles = 1
         self.bursts = 1
         self.current_burst = 1
         self.burst_cooldown_time = 3
@@ -385,14 +385,14 @@ class WeaponsController:
         self.fire_audio.play()
         match self.n_projectiles:
             case 1:
-                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage)
+                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, health=self.projectile_size)
             case _:
-                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=-15)
-                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=+15)
+                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=-15, health=self.projectile_size)
+                self.create_projectile(speed=16, angle=0, damage=self.projectile_damage, y_offset=+15, health=self.projectile_size)
                 if self.n_projectiles > 2:
                     angles = np.linspace(-self.spread, self.spread, num=self.n_projectiles - 2)
                     for angle in angles:
-                        self.create_projectile(speed=16, angle=angle, damage=self.projectile_damage)
+                        self.create_projectile(speed=16, angle=angle, damage=self.projectile_damage, health=self.projectile_size)
 
     def draw(self, draw_window):
         self.wingmen.draw(draw_window)
@@ -404,14 +404,14 @@ class WeaponsController:
         # Projectiles:
         self.projectiles.draw(draw_window)
 
-    def create_projectile(self, angle, speed=16, damage=1, y_offset=0):
+    def create_projectile(self, angle, speed=16, damage=1, y_offset=0, health=1):
         speed_x = speed * math.cos(math.radians(angle))
         speed_y = speed * math.sin(math.radians(angle)) + self.spaceship.speed_y / 4
         rect = self.spaceship.rect
         image = self.projectile_imgs[self.spaceship.weapons.projectile_size, round((90 - angle) % 360)]
 
         projectile = Projectile(image, rect.right - 10, rect.y + rect.height // 2 + y_offset,
-                                speed_x=speed_x, speed_y=speed_y, damage=damage)
+                                speed_x=speed_x, speed_y=speed_y, damage=damage, health=health)
         if self.spaceship.speed_x > 0:
             projectile.speed_x += self.spaceship.speed_x
         projectile.speed_y += self.spaceship.speed_y / 4

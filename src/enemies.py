@@ -130,6 +130,7 @@ class SpreadBulletBoss(EllipseEnemy, HealthBarEnemy):
 
     def kill(self) -> None:
         pygame.event.post(pygame.Event(NEXT_LEVEL_EVENT))
+        print("HE DEAD")
         super().kill()
 
 

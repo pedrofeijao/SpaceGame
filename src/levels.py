@@ -22,14 +22,12 @@ class LevelController:
     def activate_next_level(self):
 
         level = self.levels.get()
-        print(f"ACTIVATE {level}")
         # Check new level, or just wave:
         if level.increase_level:
             self.current_level += 1
         # Check timer to trigger next level. If 0, means some enemy (usually boss) will trigger the next level when dead
-        if level.duration > 0:
-            print(f"Next in {level.duration} ms.")
-            self.next_level_time += level.duration
+        print(f"Next in {level.duration} ms.")
+        self.next_level_time = self.game.game_time + level.duration
 
         # Activate all enemies:
         for level_enemy in level.level_enemies:
@@ -57,8 +55,12 @@ class LevelController:
         levels = Queue()
         for level in [
             # Level 1
+            # Level(60, [
+            #     LevelEnemy(EnemySpawnEvent.SPREADBOSS, spawn_time=1, loops=1),
+            # ]),
+
             Level(30, [
-                LevelEnemy(EnemySpawnEvent.ASTEROID, 2, loops=15),
+                LevelEnemy(EnemySpawnEvent.ASTEROID, spawn_time=2, loops=15),
             ]),
 
             Level(30, [
@@ -66,8 +68,8 @@ class LevelController:
                 LevelEnemy(EnemySpawnEvent.SWARM, spawn_time=0.5, loops=60)
             ]),
 
-            Level(4000, [
-                LevelEnemy(EnemySpawnEvent.SWARM, spawn_time=100, loops=20),
+            Level(30, [
+                LevelEnemy(EnemySpawnEvent.SWARM, spawn_time=0.25, loops=120),
             ]),
 
             Level(4000, [

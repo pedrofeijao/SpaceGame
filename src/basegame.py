@@ -1,13 +1,8 @@
 import math
 import random
 
-import pygame
-
 from src import gradient
-from src.constants import GameState, STATUS_BAR_HEIGHT, NEXT_LEVEL_EVENT, \
-    HEALTH_BAR_HEIGHT, BG_SPEED, PLANET_EVENT, ANCHORED_OFFSET_EVENT, SPACESHIP_DESTROYED, \
-    UPGRADE_BAR_TOP, UPGRADE_BAR_LEFT, UPGRADE_ICON_SIZE, UPGRADE_BAR_SPACING, SIMPLE_BULLET_EVENT, \
-    TARGETED_ROUND_BULLET_EVENT, ABSOLUTE_MOVE_EVENT, EnemySpawnEvent, ANGLED_ROUND_BULLET_EVENT
+from src.constants import *
 from src.enemies import Asteroid, Swarmer, SineShip, HealthBarEnemy, SpreadBulletBoss
 from src.enemy_spawner import EnemySpawner
 from src.flying_obj import Planet, Explosion, Damage, FlyingObject, UpgradePoint
@@ -98,7 +93,7 @@ class Game:
         sprite = UpgradePoint(x, y, points, self.status_font)
         self.effects.add(sprite)
 
-    def check_projectile_hits(self, projectiles, kill_projectile=True):
+    def check_projectile_hits(self, projectiles, kill_projectile=False):
         # Projectile hits:
         hits = group_two_pass_collision(self.enemy_spawner.enemy_ships, projectiles, False, kill_projectile)
         if hits:
@@ -107,6 +102,9 @@ class Game:
                 for projectile in projectiles:
                     damage += projectile.damage
                     self.create_damage_marker(projectile.x, projectile.y, projectile.damage)
+                    projectile.health -= 1
+                    if projectile.health == 0:
+                        projectile.kill()
                 destroyed = enemy.got_hit(damage=damage)
                 if destroyed:
                     self.enemy_destroyed(enemy)
@@ -176,77 +174,43 @@ class Game:
         if isinstance(enemy, SpreadBulletBoss):
             self.enemy_spawner.spawn_gem(enemy.x, enemy.y, n_gems=6, level=2)
 
-    def event_handling(self):
-        # print(f"NEXT_LEVEL in event list: {pygame.event.peek(NEXT_LEVEL_EVENT)}")
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.state_manager.game_state = GameState.QUIT
+    def process_event(self, event):
+        if event.type == pygame.QUIT:
+            self.state_manager.game_state = GameState.QUIT
 
-            # Game running events:
-            if self.state_manager.game_state == GameState.RUNNING:
+        if event.type == NEXT_LEVEL_EVENT:
+            self.level_controller.activate_next_level()
 
-                self.enemy_spawner.check_spawn_events(event)
+        self.enemy_spawner.check_spawn_events(event)
 
-                if event.type == NEXT_LEVEL_EVENT:
-                    self.level_controller.activate_next_level()
+        if event.type == PLANET_EVENT:
+            self.background.spawn_planet()
+        if event.type == ANCHORED_OFFSET_EVENT:
+            self.sprite_moves.add_anchored_offset(**event.dict)
+        if event.type == ABSOLUTE_MOVE_EVENT:
+            self.sprite_moves.add_absolute_move(**event.dict)
+        if event.type == SPACESHIP_DESTROYED:
+            self.spaceship_destroyed_sequence()
+            self.state_manager.game_state = GameState.GAME_OVER
+        if event.type == SIMPLE_BULLET_EVENT:
+            self.enemy_spawner.spawn_simple_bullet(**event.dict)
+        if event.type == TARGETED_ROUND_BULLET_EVENT:
+            self.enemy_spawner.spawn_targeted_round_bullet(**event.dict)
+        if event.type == ANGLED_ROUND_BULLET_EVENT:
+            self.enemy_spawner.spawn_angled_round_bullet(**event.dict)
 
-                if event.type == PLANET_EVENT:
-                    self.background.spawn_planet()
+        # Keys and specific game events:
+        if self.state_manager.game_state == GameState.GAME_OVER:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    self.start_up()
+                    self.state_manager.game_state = GameState.RUNNING
 
-                if event.type == ANCHORED_OFFSET_EVENT:
-                    self.sprite_moves.add_anchored_offset(**event.dict)
 
-                if event.type == ABSOLUTE_MOVE_EVENT:
-                    self.sprite_moves.add_absolute_move(**event.dict)
-
-                if event.type == SPACESHIP_DESTROYED:
-                    self.spaceship_destroyed_sequence()
-                    self.state_manager.game_state = GameState.GAME_OVER
-
-                if event.type == SIMPLE_BULLET_EVENT:
-                    self.enemy_spawner.spawn_simple_bullet(**event.dict)
-
-                if event.type == TARGETED_ROUND_BULLET_EVENT:
-                    self.enemy_spawner.spawn_targeted_round_bullet(**event.dict)
-
-                if event.type == ANGLED_ROUND_BULLET_EVENT:
-                    self.enemy_spawner.spawn_angled_round_bullet(**event.dict)
-
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_u:
-                        self.state_manager.game_state = GameState.UPGRADE
-                    if event.key == pygame.K_p:
-                        self.state_manager.game_state = GameState.PAUSE
-                    if event.key == pygame.K_BACKSLASH:
-                        self.state_manager.debug_text = ""
-                        self.state_manager.game_state = GameState.DEBUG
-
-                    # if event.key == pygame.K_1 and len(self.spaceship.weapons.wingman_pos) > 0:
-                    #     for i in range(1):
-                    #         pos = self.spaceship.weapons.wingman_pos.pop()
-                    #         wingman = self.spaceship.weapons.add_wingman(*pos)
-                    #         self.sprite_moves.add_anchored_offset(wingman, -pos[0], -pos[1])
-                    #
-                    # if event.key == pygame.K_2:
-                    #     self.spaceship.weapons.rotating_shields_max += 1
-                    #
-                    # if event.key == pygame.K_3:
-                    #     self.spaceship.weapons.increase_projectiles()
-                    #
-                    # if event.key == pygame.K_4:
-                    #     self.spaceship.health += 20
-                    #
-                    # if event.key == pygame.K_5:
-                    #     self.spaceship.weapons.shield.increase_level()
-                    #
-                    if event.key == pygame.K_6:
-                        damage = Damage(400, 400, 10, self.status_font)
-                        self.effects.add(damage)
-                    #
-                    # if event.key == pygame.K_7:
-                    #     self.spaceship.weapons.increase_burst()
-                    # if event.key == pygame.K_g:
-                    #     self.enemy_spawner.spawn_gem(600, 400)
+            # if event.key == pygame.K_7:
+            #     self.spaceship.weapons.increase_burst()
+            # if event.key == pygame.K_g:
+            #     self.enemy_spawner.spawn_gem(600, 400)
 
     # Screen drawing functions:
     def draw_status(self):
@@ -371,6 +335,14 @@ class Game:
         self.spaceship.gem_auto_pickup_distance = -1
 
     def draw_upgrade_status(self):
+
+        pygame.draw.rect(self.window, pygame.Color('gray40'),
+                         pygame.rect.Rect(PROGRESS_BAR_LEFT, PROGRESS_BAR_TOP, self.width,
+                                          PROGRESS_BAR_HEIGHT), border_radius=0)
+        pygame.draw.rect(self.window, pygame.Color('blue'),
+                         pygame.rect.Rect(PROGRESS_BAR_LEFT, PROGRESS_BAR_TOP, self.upgrade_score / self.next_upgrade * self.width,
+                                          PROGRESS_BAR_HEIGHT), border_radius=0)
+
         left_pos = UPGRADE_BAR_LEFT
         for upgrade, level in self.spaceship.upgrades.upgrade_level.items():
             if level == 0:
@@ -388,8 +360,6 @@ class Game:
             self.window.blit(txt, rect)
 
             left_pos += UPGRADE_BAR_SPACING
-            # if self.icons:
-            # window.blit(txt, rect)
 
     def parse_debug_code(self, debug_text: str):
         comm = debug_text.split(" ")
@@ -435,6 +405,7 @@ class GameStateManager:
             self.game_running_state()
             self.game.game_time += dt
 
+
         # Upgrade by points:
         if self.game.upgrade_score >= self.game.next_upgrade and self.game_state == GameState.RUNNING:
             self.game.upgrade_score -= self.game.next_upgrade
@@ -462,9 +433,10 @@ class GameStateManager:
         # Box:
         self.select_box.draw(self.window, self.game.status_font)
 
+        # Events:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.game_state = GameState.QUIT
+            self.game.process_event(event)
+            # Specific keys to upgrade:
             if event.type == pygame.KEYDOWN:
                 match event.key:
                     case pygame.K_w | pygame.K_UP:
@@ -473,7 +445,6 @@ class GameStateManager:
                         self.select_box.select_next()
                     case pygame.K_RETURN:
                         selected = self.upgrade_choices[self.select_box.selected]
-                        print(f"Selected {selected}")
                         self.game.spaceship.upgrade(selected)
                         self.game_state = GameState.RUNNING
                         self.upgrade_choices = None
@@ -492,8 +463,6 @@ class GameStateManager:
                     self.game_state = GameState.RUNNING
 
     def game_running_state(self):
-        # Event handling
-        self.game.event_handling()
 
         # Sprite group updates:
         self.game.update_sprites()
@@ -516,6 +485,19 @@ class GameStateManager:
         # Check next level trigger / level enemy spawn:
         self.game.level_controller.update()
 
+        # Events:
+        for event in pygame.event.get():
+            self.game.process_event(event)
+            # Specific keys to running:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_u:
+                    self.game_state = GameState.UPGRADE
+                if event.key == pygame.K_p:
+                    self.game_state = GameState.PAUSE
+                if event.key == pygame.K_BACKSLASH:
+                    self.debug_text = ""
+                    self.game_state = GameState.DEBUG
+
         # Draw screen:
         self.game.draw_action()
 
@@ -534,13 +516,6 @@ class GameStateManager:
         txt = self.game.title_font.render("YOU'RE DEAD !!!!", False, pygame.Color('chartreuse3'))
         rect = txt.get_rect(center=(self.game.width / 2, self.game.height / 2))
         self.game.window.blit(txt, rect)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.game_state = GameState.QUIT
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    self.game.start_up()
-                    self.game_state = GameState.RUNNING
 
     def pause_state(self):
         self.game.draw_action(add_scroll=False)
@@ -549,14 +524,12 @@ class GameStateManager:
         self.game.window.blit(txt, rect)
 
         for event in pygame.event.get():
-            match event.type:
-                case EnemySpawnEvent.SWARM.value:  # DEBUG
-                    print("SWARM")
-                case pygame.QUIT:
-                    self.game_state = GameState.QUIT
-                case pygame.KEYDOWN:
-                    if event.key == pygame.K_p:
-                        self.game_state = GameState.RUNNING
+            # Events:
+            self.game.process_event(event)
+            # Unpause:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    self.game_state = GameState.RUNNING
 
     def debug_state(self):
         self.game.draw_action(add_scroll=False)

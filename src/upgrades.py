@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 class UpgradeType(Enum):
     MAX_HEALTH = '40% more health'
-    PROJECTILE = '+1 Basic Weapon Projectile'
+    PROJECTILE = 'Improve Basic Weapon'
     WINGMAN = 'Add/improve Wingmen'
     ROTATING_SHIELD = '+2 rotating Shields'
     # MINES = '+1 Mines'
@@ -31,6 +31,11 @@ class UpgradeType(Enum):
     # REGENERATE = 'Add/improve health regeneration'
     PROJECTILE_SIZE = 'Larger projectile'
 
+
+class UpgradeLevels(Enum):
+    MAX_HEALTH = [1, 2, 3]
+
+
 class UpgradeController:
     def __init__(self, spaceship: Spaceship):
         self.spaceship = spaceship
@@ -40,7 +45,6 @@ class UpgradeController:
             upgrade: 0 for upgrade in UpgradeType
         }
         self.upgrade_level[UpgradeType.PROJECTILE] = 1
-
 
     def apply_upgrade(self, upgrade_type):
         self.upgrade_level[upgrade_type] += 1
@@ -58,9 +62,10 @@ class UpgradeController:
                             pos = self.spaceship.weapons.wingman_pos.pop()
                             wingman = self.spaceship.weapons.add_wingman(*pos)
                             pygame.event.post(pygame.event.Event(ANCHORED_OFFSET_EVENT,
-                                                                 target_object=wingman, target_x=-pos[0], target_y=-pos[1],
+                                                                 target_object=wingman, target_x=-pos[0],
+                                                                 target_y=-pos[1],
                                                                  time=1.5))
-                    case _: # level 3 and above, increase fire-rate + damage
+                    case _:  # level 3 and above, increase fire-rate + damage
                         for wingman in self.spaceship.weapons.wingmen.sprites():
                             wingman.firing_speed *= 0.8
                         self.spaceship.weapons.rocket_damage *= 1.5
@@ -102,7 +107,7 @@ class UpgradeController:
 
             case UpgradeType.PROJECTILE_SIZE:
                 self.spaceship.weapons.projectile_size += 1
-                self.spaceship.weapons.projectile_damage *= 2
+                self.spaceship.weapons.projectile_damage *= 1.1
                 self.spaceship.weapons.fire_rate.rate *= 1.5
                 self.spaceship.weapons.projectile_size = min(5, self.spaceship.weapons.projectile_size)
 
